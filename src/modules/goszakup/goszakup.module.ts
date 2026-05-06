@@ -18,8 +18,15 @@ export class GoszakupController {
   @Roles(UserRole.ADMIN, UserRole.TENDER_DEPARTMENT)
   @ApiOperation({ summary: 'Goszakup-тан қолмен синхрондау' })
   @ApiQuery({ name: 'silent', required: false, description: 'true → Telegram хабарламасыз (бастапқы импорт)' })
-  sync(@Query('silent') silent?: string) {
-    return this.goszakup.manualSync({ silent: silent === 'true' });
+  @ApiQuery({ name: 'allYears', required: false, description: 'true → барлық жылдар (әдепкі: ағымдағы жыл)' })
+  sync(
+    @Query('silent') silent?: string,
+    @Query('allYears') allYears?: string,
+  ) {
+    return this.goszakup.manualSync({
+      silent: silent === 'true',
+      allYears: allYears === 'true',
+    });
   }
 
   @Get('status')

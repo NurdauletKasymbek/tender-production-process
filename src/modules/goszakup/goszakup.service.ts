@@ -18,8 +18,10 @@ import { NotificationsService } from '../notifications/notifications.service';
  *   GOSZAKUP_API_URL   — әдепкі: https://ows.goszakup.gov.kz/v3
  */
 
-// 190 = "подписан/действующий", 200 = "исполнен", 110/120 = "проект/на согласовании"
-const SIGNED_STATUS_IDS = [190, 200];
+// 110 = на согласовании, 120 = подписан поставщиком, 190 = действующий,
+// 200 = исполнен, 210/220 = расторгнут/отменён
+// Бізге тек **190** керек — әрекет ететін, бірақ әлі орындалмаған
+const ACTIVE_STATUS_ID = 190;
 
 interface ContractNode {
   id: number;
@@ -31,11 +33,13 @@ interface ContractNode {
   ecEndDate: string | null;
   planExecDate: string | null;
   contractEndDate: string | null;
+  faktExecDate: string | null;
   refContractStatusId: number;
   trdBuyNameRu: string | null;
   descriptionRu: string | null;
   refCurrencyCode: string | null;
   supplierLegalAddress: string | null;
+  finYear: number | null;
   Customer: {
     nameRu: string | null;
     fullNameRu: string | null;
@@ -43,7 +47,7 @@ interface ContractNode {
 }
 
 const CONTRACT_QUERY = `
-  query WonContracts($filter: FilterContract, $limit: Int, $after: Int) {
+  query WonContracts($filter: ContractFiltersInput, $limit: Int, $after: Int) {
     Contract(filter: $filter, limit: $limit, after: $after) {
       id
       contractNumber
@@ -54,11 +58,13 @@ const CONTRACT_QUERY = `
       ecEndDate
       planExecDate
       contractEndDate
+      faktExecDate
       refContractStatusId
       trdBuyNameRu
       descriptionRu
       refCurrencyCode
       supplierLegalAddress
+      finYear
       Customer { nameRu fullNameRu }
     }
   }
@@ -111,26 +117,34 @@ export class GoszakupService {
 
   /**
    * Жеңіске жеткен (қол қойылған) келісімшарттарды алу.
-   * GraphQL арқылы supplier_biin және статус бойынша сүзгі.
+   * GraphQL арқылы:
+   *   - supplierBiin = біздің БСН
+   *   - refContractStatusId = 190 (тек әрекет ететін)
+   *   - finYear = ағымдағы жыл
+   * Және post-process: faktExecDate (нақты орындалу) бар контракттарды шығарамыз.
    */
-  private async fetchWonLots(): Promise<ContractNode[]> {
+  private async fetchWonLots(opts: { allYears?: boolean } = {}): Promise<ContractNode[]> {
     const bin = this.config.get<string>('GOSZAKUP_BIN');
     if (!bin) {
       this.logger.warn('GOSZAKUP_BIN орнатылмаған');
       return [];
     }
 
+    const filter: Record<string, unknown> = {
+      supplierBiin: bin,
+      refContractStatusId: [ACTIVE_STATUS_ID],
+    };
+    if (!opts.allYears) {
+      filter.finYear = new Date().getFullYear();
+    }
+
     const all: ContractNode[] = [];
     let after: number | undefined;
     const PAGE = 100;
-    const MAX_PAGES = 10; // қауіпсіздік шегі
+    const MAX_PAGES = 20; // қауіпсіздік шегі
 
     for (let page = 0; page < MAX_PAGES; page += 1) {
-      const variables = {
-        filter: { supplierBiin: bin, refContractStatusId: SIGNED_STATUS_IDS },
-        limit: PAGE,
-        after,
-      };
+      const variables = { filter, limit: PAGE, after };
       const { data } = await this.http.post('/graphql', {
         query: CONTRACT_QUERY,
         variables,
@@ -151,7 +165,22 @@ export class GoszakupService {
       after = Number(nextLastId);
     }
 
-    return all;
+    // Post-process: нақты орындалу күні бар немесе мерзімі өткен контракттарды шығарамыз
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const active = all.filter((c) => {
+      if (c.faktExecDate) return false; // фактически исполнен
+      const deadline = c.planExecDate || c.contractEndDate || c.ecEndDate;
+      if (!deadline) return true;
+      const d = new Date(deadline.replace(' ', 'T'));
+      return d.getTime() >= today.getTime(); // мерзімі әлі келмеген
+    });
+
+    this.logger.log(
+      `Goszakup: барлығы ${all.length} → активті ${active.length} ` +
+        `(орындалған/мерзімі өткен ${all.length - active.length} өткізілді)`,
+    );
+    return active;
   }
 
   /** Келісімшартты тапсырысқа айналдыру (бар болса өткізіп жібереді) */
@@ -213,9 +242,10 @@ export class GoszakupService {
 
   /**
    * Админ батырмасы үшін қолмен синхрондау.
-   * `silent: true` — Telegram хабарламаларсыз (бастапқы импорт үшін).
+   * `silent: true`   — Telegram хабарламаларсыз (бастапқы импорт)
+   * `allYears: true` — барлық жылдар бойынша (әдепкі: тек ағымдағы жыл)
    */
-  async manualSync(opts: { silent?: boolean } = {}) {
+  async manualSync(opts: { silent?: boolean; allYears?: boolean } = {}) {
     if (!this.isConfigured()) {
       return {
         ok: false,
@@ -224,7 +254,7 @@ export class GoszakupService {
       };
     }
     try {
-      const contracts = await this.fetchWonLots();
+      const contracts = await this.fetchWonLots({ allYears: opts.allYears });
       let created = 0;
       for (const c of contracts) {
         if (await this.processContract(c, { silent: opts.silent })) created += 1;
@@ -236,6 +266,7 @@ export class GoszakupService {
         created,
         skipped: contracts.length - created,
         silent: !!opts.silent,
+        allYears: !!opts.allYears,
       };
     } catch (e: any) {
       return {
