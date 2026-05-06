@@ -68,10 +68,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Авто-кіру
   useEffect(() => {
     const token = tokenStorage.get();
+
+    // Демо режимі — Telegram-сыз браузерден тестілеу
     if (token === 'demo-token') {
       const demo = loadDemoUser();
       if (demo) { setUser(demo); return; }
     }
+
+    // Токен бар болса — нақты қолданушыны API-ден жаңарту (Telegram немесе бұрынғы сессия)
+    if (token && token !== 'demo-token') {
+      setLoading(true);
+      authApi.me()
+        .then((u) => setUser(u))
+        .catch(() => {
+          // Токен жарамсыз — тазарту
+          tokenStorage.clear();
+          setUser(null);
+          // Telegram болса — қайта кіруге тырысу
+          if (isTelegramApp()) void loginTelegram();
+        })
+        .finally(() => setLoading(false));
+      return;
+    }
+
+    // Токен жоқ + Telegram → авто-кіру
     if (isTelegramApp() && !user && !loading) {
       void loginTelegram();
     }

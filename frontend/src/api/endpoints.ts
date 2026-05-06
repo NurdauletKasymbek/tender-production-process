@@ -7,6 +7,7 @@ import type {
 export const authApi = {
   loginWithTelegram: (initData: string) =>
     api.post<AuthResponse>('/auth/telegram', { initData }).then((r) => r.data),
+  me: () => api.get<import('../types').User>('/auth/me').then((r) => r.data),
 };
 
 export const ordersApi = {

@@ -44,13 +44,35 @@ export class AuthService {
     });
 
     return {
-      access_token: token,
-      user: {
-        id: user.id,
-        fullName: user.fullName,
-        role: user.role,
-        telegramUsername: user.telegramUsername,
-      },
+      accessToken: token,
+      user: this.publicUser(user),
     };
+  }
+
+  /** Frontend-ке қауіпсіз қайтарылатын user жазбасы */
+  private publicUser(user: {
+    id: string;
+    telegramId: bigint;
+    telegramUsername: string | null;
+    fullName: string;
+    phone: string | null;
+    role: string;
+    isActive: boolean;
+  }) {
+    return {
+      id: user.id,
+      telegramId: user.telegramId.toString(),
+      telegramUsername: user.telegramUsername,
+      fullName: user.fullName,
+      phone: user.phone,
+      role: user.role,
+      isActive: user.isActive,
+    };
+  }
+
+  async getMe(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('Қолданушы табылмады');
+    return this.publicUser(user);
   }
 }
