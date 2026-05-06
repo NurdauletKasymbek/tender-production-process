@@ -45,6 +45,15 @@ enum TaskStatus {
   BLOCKED      // Кедергі бар
 }
 
+// ============== ОРЫНДАУ ТҮРІ (склад / өндіріс) ==============
+// Тапсырыс директордың растауында осы өріс белгіленеді:
+//   PRODUCTION — цехта жасалады (CONFIRMATION → PRODUCTION → PACKAGING)
+//   STOCK      — дайын өнім, цехсыз (CONFIRMATION → PACKAGING)
+enum FulfillmentType {
+  PRODUCTION
+  STOCK
+}
+
 // ============== ҚОЛДАНУШЫ ==============
 model User {
   id              String   @id @default(uuid())
@@ -100,6 +109,9 @@ model Order {
   // Күй
   status          OrderStatus @default(NEW_TENDER)
   priority        Int         @default(0)  // 0-қалыпты, 1-жоғары, 2-шұғыл
+
+  // Орындау түрі — Директор CONFIRMATION-да таңдайды
+  fulfillmentType FulfillmentType @default(PRODUCTION)
   
   // Жауапты адам (ағымдағы кезеңде)
   responsibleId   String?

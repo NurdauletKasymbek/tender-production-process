@@ -1,6 +1,6 @@
 import { api } from './client';
 import type {
-  AuthResponse, DashboardStats, FileType, Notification, Order, OrderFile,
+  AuthResponse, DashboardStats, FileType, FulfillmentType, Notification, Order, OrderFile,
   OrderStatus, ProductionTask, TaskStatus,
 } from '../types';
 
@@ -45,8 +45,11 @@ export const ordersApi = {
     URL.revokeObjectURL(url);
   },
 
-  changeStatus: (id: string, next: OrderStatus, body: { comment?: string; responsibleId?: string } = {}) =>
-    api.patch<Order>(`/orders/${id}/status/${next}`, body).then((r) => r.data),
+  changeStatus: (
+    id: string,
+    next: OrderStatus,
+    body: { comment?: string; responsibleId?: string; fulfillmentType?: FulfillmentType } = {},
+  ) => api.patch<Order>(`/orders/${id}/status/${next}`, body).then((r) => r.data),
 
   create: (body: {
     tenderNumber: string;
@@ -59,6 +62,7 @@ export const ordersApi = {
     productDescription?: string;
     deliveryAddress?: string;
     notes?: string;
+    fulfillmentType?: FulfillmentType;
   }) => api.post<Order>('/orders', body).then((r) => r.data),
 };
 

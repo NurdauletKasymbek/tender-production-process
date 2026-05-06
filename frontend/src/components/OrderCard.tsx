@@ -2,14 +2,24 @@ import { Link } from 'react-router-dom';
 import type { Order } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { StageStepper } from './StageStepper';
-import { deadlineLabel, formatMoney, PRIORITY_LABEL } from '../utils/labels';
+import {
+  deadlineLabel, formatMoney, FULFILLMENT_ICON, FULFILLMENT_LABEL, PRIORITY_LABEL,
+} from '../utils/labels';
 
 export function OrderCard({ order }: { order: Order }) {
   const dl = deadlineLabel(order.deadline);
   return (
     <Link to={`/orders/${order.id}`} className="card card--link">
       <div className="card__row">
-        <span className="card__title">№{order.tenderNumber}</span>
+        <span className="card__title" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span
+            aria-label={FULFILLMENT_LABEL[order.fulfillmentType]}
+            title={FULFILLMENT_LABEL[order.fulfillmentType]}
+          >
+            {FULFILLMENT_ICON[order.fulfillmentType]}
+          </span>
+          №{order.tenderNumber}
+        </span>
         <StatusBadge value={order.status} size="sm" />
       </div>
       <div className="card__product">{order.productName}</div>

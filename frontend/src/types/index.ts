@@ -22,6 +22,9 @@ export type OrderStatus =
 
 export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED';
 
+/** Орындау түрі — цех (өндіріс) немесе склад (дайын өнім) */
+export type FulfillmentType = 'PRODUCTION' | 'STOCK';
+
 export interface User {
   id: string;
   telegramId: string;
@@ -52,6 +55,7 @@ export interface Order {
   deliveryContact?: string | null;
   status: OrderStatus;
   priority: number;
+  fulfillmentType: FulfillmentType;
   responsibleId?: string | null;
   responsible?: { id: string; fullName: string; role: UserRole } | null;
   notes?: string | null;

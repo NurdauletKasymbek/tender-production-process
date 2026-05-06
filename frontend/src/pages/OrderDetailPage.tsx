@@ -8,9 +8,9 @@ import { TaskCard } from '../components/TaskCard';
 import { FileGallery } from '../components/FileGallery';
 import { ordersApi, productionApi } from '../api/endpoints';
 import { useAuth } from '../hooks/useAuth';
-import type { FileType, Order, OrderStatus } from '../types';
+import type { FileType, FulfillmentType, Order, OrderStatus } from '../types';
 import {
-  formatDate, formatDateTime, formatMoney,
+  formatDate, formatDateTime, formatMoney, FULFILLMENT_ICON, FULFILLMENT_LABEL,
   NEXT_STATUS_BY_CURRENT, nextStepLabel, ROLE_LABEL, STATUS_LABEL,
 } from '../utils/labels';
 import { hapticImpact, hapticNotify, setBackButton, showConfirm } from '../utils/telegram';
@@ -85,25 +85,27 @@ export function OrderDetailPage() {
     (f) => f.fileType === 'TECHNICAL_SPEC' || f.fileType === 'CONTRACT',
   );
 
-  /** CONFIRMATION → PRODUCTION кезеңіне өткенде техникалық файл жоқ болса ескерту */
+  /** Директор CONFIRMATION-да 2 нұсқаны таңдайды: цех немесе склад */
+  const isDirectorConfirmation =
+    order.status === 'CONFIRMATION' && (user.role === 'DIRECTOR' || user.role === 'ADMIN');
   const willGoToProduction = order.status === 'CONFIRMATION' && next === 'PRODUCTION';
 
-  const advance = async () => {
-    if (!next) return;
-    if (willGoToProduction && !hasTechSpec) {
+  const advanceTo = async (target: OrderStatus) => {
+    if (target === 'PRODUCTION' && !hasTechSpec) {
       const ok = await showConfirm(
         'Тапсырыс цех басшысына барады, бірақ техникалық тапсырма (PDF/фото) тіркелмеген. ' +
           'Цех мамандарына ақпарат жетпеуі мүмкін. Сонда да жалғастырамыз ба?',
       );
       if (!ok) return;
     } else {
-      const ok = await showConfirm(`Тапсырыс күйі "${STATUS_LABEL[next]}" болады. Жалғастырамыз ба?`);
+      const ok = await showConfirm(`Тапсырыс күйі "${STATUS_LABEL[target]}" болады. Жалғастырамыз ба?`);
       if (!ok) return;
     }
     setBusy(true);
     try {
       hapticImpact('medium');
-      await ordersApi.changeStatus(order.id, next);
+      // CONFIRMATION → PACKAGING болса fulfillmentType автоматты STOCK болады (backend-те)
+      await ordersApi.changeStatus(order.id, target);
       hapticNotify('success');
       await load();
     } catch (e: any) {
@@ -111,6 +113,8 @@ export function OrderDetailPage() {
       setError(e.message || 'Күй өзгерту қатесі');
     } finally { setBusy(false); }
   };
+
+  const advance = () => next && advanceTo(next);
 
   const reject = async () => {
     const ok = await showConfirm('Тапсырысты қабылдамаймыз ба? Бұл әрекетті кері қайтаруға болмайды.');
@@ -156,6 +160,10 @@ export function OrderDetailPage() {
         <Row label="Саны" value={`${order.quantity} ${order.unit}`} />
         <Row label="Сома" value={formatMoney(order.totalAmount, order.currency)} />
         <Row label="Жеткізу мерзімі" value={formatDate(order.deadline)} />
+        <Row
+          label="Орындау түрі"
+          value={`${FULFILLMENT_ICON[order.fulfillmentType]} ${FULFILLMENT_LABEL[order.fulfillmentType]}`}
+        />
         {order.deliveryAddress && <Row label="Мекенжай" value={order.deliveryAddress} />}
         {order.responsible && (
           <Row label="Жауапты" value={`${order.responsible.fullName} (${ROLE_LABEL[order.responsible.role]})`} />
@@ -186,10 +194,35 @@ export function OrderDetailPage() {
 
       {(canAdvance || canReject) && (
         <div className="actions">
-          {canAdvance && next && (
-            <button className="btn btn--primary btn--lg" onClick={advance} disabled={busy}>
-              {nextStepLabel(order.status) || `→ ${STATUS_LABEL[next]}`}
-            </button>
+          {/* CONFIRMATION: Директор 2 нұсқа таңдайды */}
+          {isDirectorConfirmation ? (
+            <>
+              <button
+                className="btn btn--primary btn--lg"
+                onClick={() => void advanceTo('PRODUCTION')}
+                disabled={busy}
+              >
+                <span aria-hidden>🏭</span>
+                <span>Өндіріске жіберу (цех)</span>
+              </button>
+              <button
+                className="btn btn--success btn--lg"
+                onClick={() => void advanceTo('PACKAGING')}
+                disabled={busy}
+              >
+                <span aria-hidden>📦</span>
+                <span>Складтан алу (қаптауға)</span>
+              </button>
+              <div className="muted" style={{ fontSize: 12, textAlign: 'center', marginTop: 4 }}>
+                Дайын өнім бар болса — "Складтан алу". Жоқ болса — "Өндіріске жіберу".
+              </div>
+            </>
+          ) : (
+            canAdvance && next && (
+              <button className="btn btn--primary btn--lg" onClick={advance} disabled={busy}>
+                {nextStepLabel(order.status) || `→ ${STATUS_LABEL[next]}`}
+              </button>
+            )
           )}
           {canReject && (
             <button className="btn btn--danger" onClick={reject} disabled={busy}>

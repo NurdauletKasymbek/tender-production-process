@@ -1,5 +1,6 @@
-import { IsString, IsOptional, IsInt, IsDateString, IsNumber, Min } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsDateString, IsNumber, Min, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { FulfillmentType } from '@prisma/client';
 
 export class CreateOrderDto {
   @IsString() tenderNumber: string;
@@ -19,9 +20,19 @@ export class CreateOrderDto {
   @IsOptional() @IsString() deliveryAddress?: string;
   @IsOptional() @IsString() deliveryContact?: string;
   @IsOptional() @IsString() notes?: string;
+
+  /** Орындау түрі — әдепкі: PRODUCTION (цех). STOCK таңдалса, склад flow. */
+  @IsOptional() @IsEnum(FulfillmentType) fulfillmentType?: FulfillmentType;
 }
 
 export class ChangeStatusDto {
   @IsOptional() @IsString() comment?: string;
   @IsOptional() @IsString() responsibleId?: string;
+  /**
+   * Тек CONFIRMATION-дан ауысқанда мағыналы:
+   *   PACKAGING-ке көшсе  → STOCK ретінде белгіленеді (склад)
+   *   PRODUCTION-ге көшсе → PRODUCTION ретінде (өндіріс)
+   * Қажет болса қолмен override үшін қолданылады.
+   */
+  @IsOptional() @IsEnum(FulfillmentType) fulfillmentType?: FulfillmentType;
 }

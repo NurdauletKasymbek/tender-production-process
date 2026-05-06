@@ -17,8 +17,11 @@ export const ORDER_TRANSITIONS: Record<
     { to: OrderStatus.REJECTED, allowedRoles: [UserRole.TENDER_DEPARTMENT, UserRole.ADMIN] },
   ],
   CONFIRMATION: [
+    // Цехта жасалады (қалыпты flow)
     { to: OrderStatus.PRODUCTION, allowedRoles: [UserRole.DIRECTOR, UserRole.ADMIN] },
-    { to: OrderStatus.REJECTED, allowedRoles: [UserRole.DIRECTOR, UserRole.ADMIN] },
+    // Складтан алынады — цех аттап өтіледі
+    { to: OrderStatus.PACKAGING,  allowedRoles: [UserRole.DIRECTOR, UserRole.ADMIN] },
+    { to: OrderStatus.REJECTED,   allowedRoles: [UserRole.DIRECTOR, UserRole.ADMIN] },
   ],
   PRODUCTION: [
     { to: OrderStatus.PACKAGING, allowedRoles: [UserRole.PRODUCTION_HEAD, UserRole.ADMIN] },

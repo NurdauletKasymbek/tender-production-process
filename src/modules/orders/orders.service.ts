@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { OrderStatus, UserRole, Prisma } from '@prisma/client';
+import { OrderStatus, UserRole, Prisma, FulfillmentType } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateOrderDto, ChangeStatusDto } from './dto/order.dto';
@@ -21,6 +21,7 @@ export class OrdersService {
         contractDate: dto.contractDate ? new Date(dto.contractDate) : null,
         totalAmount: new Prisma.Decimal(dto.totalAmount),
         status: OrderStatus.NEW_TENDER,
+        fulfillmentType: dto.fulfillmentType ?? FulfillmentType.PRODUCTION,
       },
     });
 
@@ -101,14 +102,29 @@ export class OrdersService {
       }
     }
 
+    // CONFIRMATION-дан өткенде орындау түрін бекітеміз:
+    //   → PACKAGING болса = STOCK (склад)
+    //   → PRODUCTION болса = PRODUCTION (цех, default)
+    // dto.fulfillmentType қолмен берілсе, ол басымдыққа ие.
+    let fulfillmentType: FulfillmentType | undefined = dto.fulfillmentType;
+    if (!fulfillmentType && order.status === OrderStatus.CONFIRMATION) {
+      if (nextStatus === OrderStatus.PACKAGING) fulfillmentType = FulfillmentType.STOCK;
+      else if (nextStatus === OrderStatus.PRODUCTION) fulfillmentType = FulfillmentType.PRODUCTION;
+    }
+
     const [updated] = await this.prisma.$transaction([
       this.prisma.order.update({
         where: { id: orderId },
         data: {
           status: nextStatus,
           responsibleId: newResponsibleId,
-          startedAt: order.startedAt ?? (nextStatus === OrderStatus.PRODUCTION ? new Date() : null),
+          startedAt: order.startedAt ?? (
+            nextStatus === OrderStatus.PRODUCTION || nextStatus === OrderStatus.PACKAGING
+              ? new Date()
+              : null
+          ),
           completedAt: nextStatus === OrderStatus.CLOSED ? new Date() : null,
+          ...(fulfillmentType ? { fulfillmentType } : {}),
         },
       }),
       this.prisma.orderStatusHistory.create({

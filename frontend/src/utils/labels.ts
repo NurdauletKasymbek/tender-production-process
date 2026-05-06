@@ -1,4 +1,14 @@
-import type { OrderStatus, TaskStatus, UserRole } from '../types';
+import type { FulfillmentType, OrderStatus, TaskStatus, UserRole } from '../types';
+
+export const FULFILLMENT_LABEL: Record<FulfillmentType, string> = {
+  PRODUCTION: 'Өндіріс',
+  STOCK: 'Склад',
+};
+
+export const FULFILLMENT_ICON: Record<FulfillmentType, string> = {
+  PRODUCTION: '🏭',
+  STOCK: '📦',
+};
 
 export const ROLE_LABEL: Record<UserRole, string> = {
   ADMIN: 'Әкімші',

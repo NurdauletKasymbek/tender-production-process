@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { ordersApi } from '../api/endpoints';
 import { hapticNotify, showAlert } from '../utils/telegram';
+import type { FulfillmentType } from '../types';
 
 export function NewOrderPage() {
   const nav = useNavigate();
@@ -19,6 +20,7 @@ export function NewOrderPage() {
     deadline: '',
     deliveryAddress: '',
     notes: '',
+    fulfillmentType: 'PRODUCTION' as FulfillmentType,
   });
 
   const update = <K extends keyof typeof form>(key: K, v: typeof form[K]) =>
@@ -40,6 +42,7 @@ export function NewOrderPage() {
         deadline: new Date(form.deadline).toISOString(),
         deliveryAddress: form.deliveryAddress.trim() || undefined,
         notes: form.notes.trim() || undefined,
+        fulfillmentType: form.fulfillmentType,
       });
       hapticNotify('success');
       await showAlert(
@@ -103,6 +106,29 @@ export function NewOrderPage() {
           <input className="input" value={form.deliveryAddress}
             onChange={(e) => update('deliveryAddress', e.target.value)} />
         </Field>
+
+        <Field label="Орындау түрі" required>
+          <div className="tabs">
+            <button
+              type="button"
+              className={`tabs__item ${form.fulfillmentType === 'PRODUCTION' ? 'is-active' : ''}`}
+              onClick={() => update('fulfillmentType', 'PRODUCTION')}
+            >
+              🏭 Цехта жасалады
+            </button>
+            <button
+              type="button"
+              className={`tabs__item ${form.fulfillmentType === 'STOCK' ? 'is-active' : ''}`}
+              onClick={() => update('fulfillmentType', 'STOCK')}
+            >
+              📦 Складтан
+            </button>
+          </div>
+          <span className="field__hint">
+            Дайын өнім бар болса "Складтан" — цех аттап өтіледі.
+          </span>
+        </Field>
+
         <Field label="Ескертпе">
           <textarea className="input input--textarea" value={form.notes}
             onChange={(e) => update('notes', e.target.value)} />
