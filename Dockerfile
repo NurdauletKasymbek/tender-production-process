@@ -1,17 +1,32 @@
 FROM node:20-alpine AS builder
 
 WORKDIR /app
-COPY package*.json ./
+
+# Тәуелділіктерді алдымен орнату — кэш үшін
+COPY package.json package-lock.json ./
 RUN npm ci
+
+# Қалған кодты копирлеу (.dockerignore артық файлдарды шығарып тастайды)
 COPY . .
+
+# Prisma client + nest build
 RUN npx prisma generate && npm run build
 
+# ============= Production image =============
 FROM node:20-alpine
+
 WORKDIR /app
+
+# OpenSSL — Prisma үшін Alpine-да керек
+RUN apk add --no-cache openssl
+
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
+ENV NODE_ENV=production
 EXPOSE 3000
-CMD ["node", "dist/main"]
+
+# migrate deploy + start
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
