@@ -41,4 +41,6 @@ EXPOSE 3000
 # db push (MVP — migrations папкасы әзірге жоқ) + start
 # Кейін `prisma migrate dev` арқылы migration файлдары жасалғанда
 # мынаны `prisma migrate deploy` дегенге ауыстырамыз.
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/main"]
+# Ескерту: tsconfig include-та `prisma/**/*` болғандықтан, output
+# `dist/src/main.js`-ке шығады (`dist/main.js`-ке емес).
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/src/main"]
