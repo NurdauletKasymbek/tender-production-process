@@ -6,8 +6,9 @@ async function main() {
   console.log('🌱 Демо деректерді жүктеу...');
 
   // 8 рөл бойынша демо қолданушылар
+  // ADMIN — нақты Telegram ID, қалғандары — placeholder (кейін ауыстырамыз)
   const users = [
-    { telegramId: 1001n, fullName: 'Әлия Әкімова', role: UserRole.ADMIN },
+    { telegramId: 8467447289n, fullName: 'SERT (Admin)', role: UserRole.ADMIN },
     { telegramId: 1002n, fullName: 'Бекзат Тендеров', role: UserRole.TENDER_DEPARTMENT },
     { telegramId: 1003n, fullName: 'Дәурен Басшиев', role: UserRole.DIRECTOR },
     { telegramId: 1004n, fullName: 'Ермек Цехтанов', role: UserRole.PRODUCTION_HEAD },
