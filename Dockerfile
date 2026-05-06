@@ -4,7 +4,14 @@ WORKDIR /app
 
 # Тәуелділіктерді алдымен орнату — кэш үшін
 COPY package.json package-lock.json ./
-RUN npm ci
+
+# Диагностика — файлдар бар-жоғын тексеру
+RUN echo "=== Build context ===" && ls -la && \
+    echo "=== package.json ===" && head -20 package.json && \
+    echo "=== lock file size ===" && wc -c package-lock.json
+
+# npm install (npm ci-ден гөрі төзімді, lock-ты қажет етеді бірақ minor mismatch-ке жұмсақ)
+RUN npm install --no-audit --no-fund --prefer-offline
 
 # Қалған кодты копирлеу (.dockerignore артық файлдарды шығарып тастайды)
 COPY . .
