@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Header } from '../../components/Header';
 import { Spinner } from '../../components/Spinner';
 import { OrderCard } from '../../components/OrderCard';
 import { EmptyState } from '../../components/EmptyState';
+import { GoszakupSync } from '../../components/GoszakupSync';
 import { ordersApi } from '../../api/endpoints';
 import type { DashboardStats, Order } from '../../types';
 import { STATUS_COLOR, STATUS_LABEL } from '../../utils/labels';
@@ -14,20 +15,20 @@ export function AdminHome() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [s, list] = await Promise.all([
-          ordersApi.dashboard(),
-          ordersApi.list(),
-        ]);
-        setStats(s);
-        setRecent(list.slice(0, 10));
-      } catch (e: any) {
-        setError(e.message || 'Деректерді жүктеу қатесі');
-      } finally { setLoading(false); }
-    })();
+  const load = useCallback(async () => {
+    try {
+      const [s, list] = await Promise.all([
+        ordersApi.dashboard(),
+        ordersApi.list(),
+      ]);
+      setStats(s);
+      setRecent(list.slice(0, 10));
+    } catch (e: any) {
+      setError(e.message || 'Деректерді жүктеу қатесі');
+    } finally { setLoading(false); }
   }, []);
+
+  useEffect(() => { void load(); }, [load]);
 
   if (loading) return <Spinner />;
 
@@ -83,6 +84,8 @@ export function AdminHome() {
           </div>
         </>
       )}
+
+      <GoszakupSync onSynced={() => void load()} />
 
       <div className="flex gap-sm" style={{ flexDirection: 'column' }}>
         <Link to="/orders/new" className="btn btn--primary btn--lg btn--block">

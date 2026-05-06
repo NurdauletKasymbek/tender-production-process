@@ -1,6 +1,6 @@
-import { Controller, Post, UseGuards, Module } from '@nestjs/common';
+import { Controller, Get, Post, UseGuards, Module } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { GoszakupService } from './goszakup.service';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -16,8 +16,16 @@ export class GoszakupController {
 
   @Post('sync')
   @Roles(UserRole.ADMIN, UserRole.TENDER_DEPARTMENT)
+  @ApiOperation({ summary: 'Goszakup-тан қолмен синхрондау' })
   sync() {
     return this.goszakup.manualSync();
+  }
+
+  @Get('status')
+  @Roles(UserRole.ADMIN, UserRole.TENDER_DEPARTMENT, UserRole.DIRECTOR)
+  @ApiOperation({ summary: 'Goszakup интеграциясының күйі' })
+  status() {
+    return { configured: this.goszakup.isConfigured() };
   }
 }
 

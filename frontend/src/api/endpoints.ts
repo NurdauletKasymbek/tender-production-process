@@ -76,6 +76,19 @@ export const productionApi = {
     api.patch<ProductionTask>(`/production/tasks/${id}/status/${status}`).then((r) => r.data),
 };
 
+export const goszakupApi = {
+  status: () => api.get<{ configured: boolean }>('/goszakup/status').then((r) => r.data),
+  sync: () =>
+    api.post<{
+      ok: boolean;
+      configured?: boolean;
+      fetched?: number;
+      created?: number;
+      skipped?: number;
+      message?: string;
+    }>('/goszakup/sync').then((r) => r.data),
+};
+
 export const filesApi = {
   list: (orderId: string) =>
     api.get<OrderFile[]>(`/files/order/${orderId}`).then((r) => r.data),

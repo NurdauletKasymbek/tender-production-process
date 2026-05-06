@@ -3,6 +3,7 @@ import { Header } from '../../components/Header';
 import { OrderCard } from '../../components/OrderCard';
 import { Spinner } from '../../components/Spinner';
 import { EmptyState } from '../../components/EmptyState';
+import { GoszakupSync } from '../../components/GoszakupSync';
 import { useOrders } from '../../hooks/useOrders';
 import type { OrderStatus } from '../../types';
 import { STATUS_LABEL } from '../../utils/labels';
@@ -16,15 +17,13 @@ const TABS: { key: OrderStatus; short: string; icon: string }[] = [
 
 export function TenderDepartmentHome() {
   const [tab, setTab] = useState<OrderStatus>('NEW_TENDER');
-  const { orders, loading, error } = useOrders({ status: tab });
+  const { orders, loading, error, reload } = useOrders({ status: tab });
 
   return (
     <div className="page">
       <Header title="Тендерлік бөлім" />
 
-      <div className="info-banner">
-        <strong>Goszakup-тан жаңа тендер</strong> келгенде осында автоматты түрде шығады.
-      </div>
+      <GoszakupSync onSynced={() => void reload()} />
 
       <div className="tabs">
         {TABS.map((t) => (
