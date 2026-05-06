@@ -3,10 +3,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { Spinner } from '../components/Spinner';
 import { StatusBadge } from '../components/StatusBadge';
+import { StageStepper } from '../components/StageStepper';
 import { TaskCard } from '../components/TaskCard';
+import { FileGallery } from '../components/FileGallery';
 import { ordersApi, productionApi } from '../api/endpoints';
 import { useAuth } from '../hooks/useAuth';
-import type { Order, OrderStatus } from '../types';
+import type { FileType, Order, OrderStatus } from '../types';
 import {
   formatDate, formatDateTime, formatMoney,
   NEXT_STATUS_BY_CURRENT, nextStepLabel, ROLE_LABEL, STATUS_LABEL,
@@ -24,6 +26,18 @@ const ROLE_CAN_ADVANCE: Record<OrderStatus, string[]> = {
   DELIVERY: ['LOGISTICS', 'DIRECTOR', 'ADMIN'],
   CLOSED: [],
   REJECTED: [],
+};
+
+const FILE_TYPE_BY_STAGE: Partial<Record<OrderStatus, FileType>> = {
+  NEW_TENDER: 'CONTRACT',
+  REVIEW: 'CONTRACT',
+  CONFIRMATION: 'TECHNICAL_SPEC',
+  PRODUCTION: 'PRODUCTION_PHOTO',
+  PACKAGING: 'PACKAGING_PHOTO',
+  LOADING: 'LOADING_PHOTO',
+  LOGISTICS: 'LOADING_PHOTO',
+  DELIVERY: 'DELIVERY_PHOTO',
+  CLOSED: 'INVOICE',
 };
 
 const ROLE_CAN_REJECT: Record<OrderStatus, string[]> = {
@@ -116,6 +130,11 @@ export function OrderDetailPage() {
       </div>
 
       <div className="card">
+        <h3 className="section-title" style={{ margin: 0 }}>Pipeline</h3>
+        <StageStepper current={order.status} />
+      </div>
+
+      <div className="card">
         <Row label="Тапсырыс беруші" value={order.customerName} />
         {order.customerBin && <Row label="БСН" value={order.customerBin} />}
         {order.contractNumber && <Row label="Келісімшарт №" value={order.contractNumber} />}
@@ -171,6 +190,13 @@ export function OrderDetailPage() {
           </div>
         </>
       )}
+
+      <h3 className="section-title">Файлдар</h3>
+      <FileGallery
+        orderId={order.id}
+        suggestedType={FILE_TYPE_BY_STAGE[order.status] || 'OTHER'}
+        canUpload={user.role !== 'WORKSHOP_WORKER' || order.status === 'PRODUCTION'}
+      />
 
       {order.statusHistory && order.statusHistory.length > 0 && (
         <>

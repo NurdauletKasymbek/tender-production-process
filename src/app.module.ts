@@ -10,6 +10,7 @@ import { ProductionModule } from './modules/production/production.module';
 import { GoszakupModule } from './modules/goszakup/goszakup.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { FilesModule } from './modules/files/files.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     GoszakupModule,
     TelegramModule,
     NotificationsModule,
+    FilesModule,
   ],
 })
 export class AppModule {}

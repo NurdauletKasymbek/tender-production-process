@@ -36,18 +36,26 @@ export function DirectorHome() {
     <div className="page">
       <Header title="Басшылық дашборды" />
 
-      {error && <div className="alert alert--error">{error}</div>}
+      {error && <div className="alert alert--error"><span>⚠️</span><span>{error}</span></div>}
 
       {stats && (
         <>
+          <div className="hero-stat">
+            <div className="hero-stat__label">Белсенді тапсырыстар</div>
+            <div className="hero-stat__value">{stats.activeCount}</div>
+            <div className="hero-stat__hint">Бизнес-цикл бойындағы барлық тапсырыстар</div>
+          </div>
+
           <div className="stat-grid">
-            <div className="stat-card">
-              <div className="stat-card__value">{stats.activeCount}</div>
-              <div className="stat-card__label">Белсенді тапсырыстар</div>
-            </div>
             <div className="stat-card stat-card--danger">
+              <div className="stat-card__icon" aria-hidden>⏰</div>
               <div className="stat-card__value">{stats.overdueCount}</div>
               <div className="stat-card__label">Мерзімі өтті</div>
+            </div>
+            <div className="stat-card stat-card--warning">
+              <div className="stat-card__icon" aria-hidden>📥</div>
+              <div className="stat-card__value">{confirmation.length}</div>
+              <div className="stat-card__label">Растауды күтуде</div>
             </div>
           </div>
 
@@ -70,7 +78,11 @@ export function DirectorHome() {
 
       <h3 className="section-title">Растауды күтуде</h3>
       {confirmation.length === 0 ? (
-        <EmptyState icon="✅" title="Растауды күтетін тапсырыс жоқ" />
+        <EmptyState
+          icon="✅"
+          title="Растауды күтетін тапсырыс жоқ"
+          description="Тендерлік бөлім тексеруден өткізген соң мұнда көрсетіледі."
+        />
       ) : (
         <div className="list">
           {confirmation.map((o) => <OrderCard key={o.id} order={o} />)}

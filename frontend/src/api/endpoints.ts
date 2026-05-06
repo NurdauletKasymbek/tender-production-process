@@ -1,6 +1,7 @@
 import { api } from './client';
 import type {
-  AuthResponse, DashboardStats, Notification, Order, OrderStatus, ProductionTask, TaskStatus,
+  AuthResponse, DashboardStats, FileType, Notification, Order, OrderFile,
+  OrderStatus, ProductionTask, TaskStatus,
 } from '../types';
 
 export const authApi = {
@@ -51,6 +52,29 @@ export const productionApi = {
 
   updateTaskStatus: (id: string, status: TaskStatus) =>
     api.patch<ProductionTask>(`/production/tasks/${id}/status/${status}`).then((r) => r.data),
+};
+
+export const filesApi = {
+  list: (orderId: string) =>
+    api.get<OrderFile[]>(`/files/order/${orderId}`).then((r) => r.data),
+
+  upload: (params: { orderId: string; file: File; fileType: FileType }) => {
+    const fd = new FormData();
+    fd.append('orderId', params.orderId);
+    fd.append('fileType', params.fileType);
+    fd.append('file', params.file);
+    return api.post<OrderFile>('/files/upload', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data);
+  },
+
+  remove: (id: string) => api.delete(`/files/${id}`).then((r) => r.data),
+
+  /** URL-ді тікелей <img src> немесе <a href> үшін қолдану */
+  downloadUrl: (id: string, inline = false) => {
+    const base = (api.defaults.baseURL || '/api').replace(/\/$/, '');
+    return `${base}/files/${id}${inline ? '?inline=true' : ''}`;
+  },
 };
 
 export const notificationsApi = {

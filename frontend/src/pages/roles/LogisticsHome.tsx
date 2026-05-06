@@ -6,9 +6,9 @@ import { EmptyState } from '../../components/EmptyState';
 import { useOrders } from '../../hooks/useOrders';
 import type { OrderStatus } from '../../types';
 
-const TABS: { key: OrderStatus; label: string }[] = [
-  { key: 'LOGISTICS', label: 'Жолда' },
-  { key: 'DELIVERY', label: 'Жеткізу' },
+const TABS: { key: OrderStatus; label: string; icon: string }[] = [
+  { key: 'LOGISTICS', label: 'Жолда', icon: '🛣️' },
+  { key: 'DELIVERY', label: 'Жеткізуде', icon: '📍' },
 ];
 
 export function LogisticsHome() {
@@ -18,6 +18,7 @@ export function LogisticsHome() {
   return (
     <div className="page">
       <Header title="Логистика" />
+
       <div className="tabs">
         {TABS.map((t) => (
           <button
@@ -25,16 +26,21 @@ export function LogisticsHome() {
             className={`tabs__item ${tab === t.key ? 'is-active' : ''}`}
             onClick={() => setTab(t.key)}
           >
+            <span aria-hidden style={{ marginRight: 4 }}>{t.icon}</span>
             {t.label}
           </button>
         ))}
       </div>
 
-      {error && <div className="alert alert--error">{error}</div>}
+      {error && <div className="alert alert--error"><span>⚠️</span><span>{error}</span></div>}
       {loading ? (
         <Spinner />
       ) : orders.length === 0 ? (
-        <EmptyState icon="🚚" title="Тапсырыс жоқ" />
+        <EmptyState
+          icon={tab === 'LOGISTICS' ? '🚚' : '📍'}
+          title="Тапсырыс жоқ"
+          description={tab === 'LOGISTICS' ? 'Тиеу аяқталғаннан кейін осында шығады.' : 'Жолда тапсырыстар жоқ.'}
+        />
       ) : (
         <div className="list">
           {orders.map((o) => <OrderCard key={o.id} order={o} />)}

@@ -8,10 +8,10 @@ import type { OrderStatus } from '../../types';
 import { STATUS_LABEL } from '../../utils/labels';
 import { Link } from 'react-router-dom';
 
-const TABS: { key: OrderStatus; short: string }[] = [
-  { key: 'NEW_TENDER', short: 'Жаңа' },
-  { key: 'REVIEW', short: 'Тексеруде' },
-  { key: 'CONFIRMATION', short: 'Растауда' },
+const TABS: { key: OrderStatus; short: string; icon: string }[] = [
+  { key: 'NEW_TENDER', short: 'Жаңа', icon: '🆕' },
+  { key: 'REVIEW', short: 'Тексеруде', icon: '🔍' },
+  { key: 'CONFIRMATION', short: 'Растауда', icon: '⏳' },
 ];
 
 export function TenderDepartmentHome() {
@@ -22,6 +22,10 @@ export function TenderDepartmentHome() {
     <div className="page">
       <Header title="Тендерлік бөлім" />
 
+      <div className="info-banner">
+        <strong>Goszakup-тан жаңа тендер</strong> келгенде осында автоматты түрде шығады.
+      </div>
+
       <div className="tabs">
         {TABS.map((t) => (
           <button
@@ -29,14 +33,18 @@ export function TenderDepartmentHome() {
             className={`tabs__item ${tab === t.key ? 'is-active' : ''}`}
             onClick={() => setTab(t.key)}
           >
+            <span aria-hidden style={{ marginRight: 4 }}>{t.icon}</span>
             {t.short}
           </button>
         ))}
       </div>
 
-      <Link to="/orders/new" className="btn btn--primary btn--lg">+ Қолмен тапсырыс жасау</Link>
+      <Link to="/orders/new" className="btn btn--soft btn--lg btn--block">
+        <span aria-hidden>+</span>
+        <span>Қолмен тапсырыс жасау</span>
+      </Link>
 
-      {error && <div className="alert alert--error">{error}</div>}
+      {error && <div className="alert alert--error"><span>⚠️</span><span>{error}</span></div>}
       {loading ? (
         <Spinner />
       ) : orders.length === 0 ? (
