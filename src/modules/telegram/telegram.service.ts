@@ -29,6 +29,7 @@ export class TelegramService implements OnModuleInit {
       const user = await this.prisma.user.findUnique({ where: { telegramId: tgId } });
 
       const webAppUrl = this.config.get<string>('TELEGRAM_WEBAPP_URL');
+      const isHttps = webAppUrl?.startsWith('https://');
 
       if (!user) {
         await this.bot.sendMessage(
@@ -40,18 +41,30 @@ export class TelegramService implements OnModuleInit {
         return;
       }
 
-      await this.bot.sendMessage(
-        msg.chat.id,
-        `Қош келдіңіз, ${user.fullName}!\nРөл: *${user.role}*\n\nҚосымшаны ашу үшін төмендегі батырманы басыңыз:`,
-        {
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '📱 Қосымшаны ашу', web_app: { url: webAppUrl! } }],
-            ],
+      const welcomeText = `Қош келдіңіз, ${user.fullName}!\nРөл: *${user.role}*`;
+
+      if (isHttps && webAppUrl) {
+        await this.bot.sendMessage(
+          msg.chat.id,
+          `${welcomeText}\n\nҚосымшаны ашу үшін төмендегі батырманы басыңыз:`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '📱 Қосымшаны ашу', web_app: { url: webAppUrl } }],
+              ],
+            },
           },
-        },
-      );
+        );
+      } else {
+        await this.bot.sendMessage(
+          msg.chat.id,
+          `${welcomeText}\n\n` +
+            `⚠️ Mini App әлі HTTPS URL-де орналаспаған.\n` +
+            `Дамыту режимінде браузерден ашыңыз: ${webAppUrl || 'http://localhost:5173'}`,
+          { parse_mode: 'Markdown' },
+        );
+      }
     });
 
     this.bot.onText(/\/myid/, (msg) => {
