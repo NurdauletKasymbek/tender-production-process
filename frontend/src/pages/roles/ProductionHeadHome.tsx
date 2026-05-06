@@ -11,19 +11,30 @@ export function ProductionHeadHome() {
     <div className="page">
       <Header title="Өндіріс бастығы" />
 
-      <div className="info-banner">
-        Тапсырысты ашып, цех мамандарына жеке тапсырмалар таратыңыз.
+      <div className="hero-stat">
+        <div className="hero-stat__label">Өндірісте</div>
+        <div className="hero-stat__value">{orders.length}</div>
+        <div className="hero-stat__hint">
+          Тапсырысты ашып, цех мамандарына жеке тапсырмалар таратыңыз
+        </div>
       </div>
 
-      {error && <div className="alert alert--error">{error}</div>}
+      {error && <div className="alert alert--error"><span>⚠️</span><span>{error}</span></div>}
       {loading ? (
         <Spinner />
       ) : orders.length === 0 ? (
-        <EmptyState icon="🛠️" title="Өндірісте тапсырыс жоқ" />
+        <EmptyState
+          icon="🛠️"
+          title="Өндірісте тапсырыс жоқ"
+          description="Басшы растағаннан кейін тапсырыстар осы жерде көрінеді."
+        />
       ) : (
-        <div className="list">
-          {orders.map((o) => <OrderCard key={o.id} order={o} />)}
-        </div>
+        <>
+          <h3 className="section-title">Белсенді тапсырыстар</h3>
+          <div className="list">
+            {orders.map((o) => <OrderCard key={o.id} order={o} />)}
+          </div>
+        </>
       )}
     </div>
   );

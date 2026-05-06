@@ -20,23 +20,36 @@ const EMPTY: Partial<Record<OrderStatus, string>> = {
   LOADING: 'Тиеуді күтетін тапсырыс жоқ',
 };
 
+const ICON: Partial<Record<OrderStatus, string>> = {
+  PACKAGING: '📦',
+  LOADING: '🚛',
+};
+
 export function StageQueueHome({ stage, title }: Props) {
   const { orders, loading, error } = useOrders({ status: stage });
 
   return (
     <div className="page">
       <Header title={title} />
-      {HINT[stage] && <div className="info-banner">{HINT[stage]}</div>}
 
-      {error && <div className="alert alert--error">{error}</div>}
+      <div className="hero-stat">
+        <div className="hero-stat__label">{title}</div>
+        <div className="hero-stat__value">{orders.length}</div>
+        <div className="hero-stat__hint">{HINT[stage]}</div>
+      </div>
+
+      {error && <div className="alert alert--error"><span>⚠️</span><span>{error}</span></div>}
       {loading ? (
         <Spinner />
       ) : orders.length === 0 ? (
-        <EmptyState icon="📦" title={EMPTY[stage] || 'Тапсырыс жоқ'} />
+        <EmptyState icon={ICON[stage] || '📦'} title={EMPTY[stage] || 'Тапсырыс жоқ'} />
       ) : (
-        <div className="list">
-          {orders.map((o) => <OrderCard key={o.id} order={o} />)}
-        </div>
+        <>
+          <h3 className="section-title">Кезек</h3>
+          <div className="list">
+            {orders.map((o) => <OrderCard key={o.id} order={o} />)}
+          </div>
+        </>
       )}
     </div>
   );

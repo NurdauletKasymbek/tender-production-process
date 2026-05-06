@@ -85,15 +85,26 @@ export interface ProductionTask {
   order?: { tenderNumber: string; productName: string; deadline: string };
 }
 
+export type FileType =
+  | 'CONTRACT'
+  | 'TECHNICAL_SPEC'
+  | 'PRODUCTION_PHOTO'
+  | 'PACKAGING_PHOTO'
+  | 'LOADING_PHOTO'
+  | 'DELIVERY_PHOTO'
+  | 'INVOICE'
+  | 'OTHER';
+
 export interface OrderFile {
   id: string;
+  orderId: string;
   fileName: string;
-  fileType: string;
+  fileType: FileType;
   filePath: string;
   mimeType: string;
   sizeBytes: number;
   createdAt: string;
-  uploadedBy: { fullName: string };
+  uploadedBy: { fullName: string; role?: UserRole };
 }
 
 export interface Notification {

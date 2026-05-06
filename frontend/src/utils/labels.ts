@@ -11,6 +11,17 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   LOGISTICS: 'Логист',
 };
 
+export const ROLE_ICON: Record<UserRole, string> = {
+  ADMIN: '👑',
+  TENDER_DEPARTMENT: '📋',
+  DIRECTOR: '💼',
+  PRODUCTION_HEAD: '🏭',
+  WORKSHOP_WORKER: '🔧',
+  PACKAGING: '📦',
+  LOADING: '🚛',
+  LOGISTICS: '🛣️',
+};
+
 export const STATUS_LABEL: Record<OrderStatus, string> = {
   NEW_TENDER: 'Жаңа тендер',
   REVIEW: 'Тексеру',

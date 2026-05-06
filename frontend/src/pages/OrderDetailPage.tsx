@@ -3,10 +3,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { Spinner } from '../components/Spinner';
 import { StatusBadge } from '../components/StatusBadge';
+import { StageStepper } from '../components/StageStepper';
 import { TaskCard } from '../components/TaskCard';
+import { FileGallery } from '../components/FileGallery';
 import { ordersApi, productionApi } from '../api/endpoints';
 import { useAuth } from '../hooks/useAuth';
-import type { Order, OrderStatus } from '../types';
+import type { FileType, Order, OrderStatus } from '../types';
 import {
   formatDate, formatDateTime, formatMoney,
   NEXT_STATUS_BY_CURRENT, nextStepLabel, ROLE_LABEL, STATUS_LABEL,
@@ -24,6 +26,18 @@ const ROLE_CAN_ADVANCE: Record<OrderStatus, string[]> = {
   DELIVERY: ['LOGISTICS', 'DIRECTOR', 'ADMIN'],
   CLOSED: [],
   REJECTED: [],
+};
+
+const FILE_TYPE_BY_STAGE: Partial<Record<OrderStatus, FileType>> = {
+  NEW_TENDER: 'CONTRACT',
+  REVIEW: 'CONTRACT',
+  CONFIRMATION: 'TECHNICAL_SPEC',
+  PRODUCTION: 'PRODUCTION_PHOTO',
+  PACKAGING: 'PACKAGING_PHOTO',
+  LOADING: 'LOADING_PHOTO',
+  LOGISTICS: 'LOADING_PHOTO',
+  DELIVERY: 'DELIVERY_PHOTO',
+  CLOSED: 'INVOICE',
 };
 
 const ROLE_CAN_REJECT: Record<OrderStatus, string[]> = {
@@ -66,11 +80,26 @@ export function OrderDetailPage() {
   const canAdvance = next && ROLE_CAN_ADVANCE[order.status]?.includes(user.role);
   const canReject = ROLE_CAN_REJECT[order.status]?.includes(user.role);
   const canAddTasks = order.status === 'PRODUCTION' && (user.role === 'PRODUCTION_HEAD' || user.role === 'ADMIN');
+  const fileCount = order.files?.length ?? 0;
+  const hasTechSpec = !!order.files?.some(
+    (f) => f.fileType === 'TECHNICAL_SPEC' || f.fileType === 'CONTRACT',
+  );
+
+  /** CONFIRMATION → PRODUCTION кезеңіне өткенде техникалық файл жоқ болса ескерту */
+  const willGoToProduction = order.status === 'CONFIRMATION' && next === 'PRODUCTION';
 
   const advance = async () => {
     if (!next) return;
-    const ok = await showConfirm(`Тапсырыс күйі "${STATUS_LABEL[next]}" болады. Жалғастырамыз ба?`);
-    if (!ok) return;
+    if (willGoToProduction && !hasTechSpec) {
+      const ok = await showConfirm(
+        'Тапсырыс цех басшысына барады, бірақ техникалық тапсырма (PDF/фото) тіркелмеген. ' +
+          'Цех мамандарына ақпарат жетпеуі мүмкін. Сонда да жалғастырамыз ба?',
+      );
+      if (!ok) return;
+    } else {
+      const ok = await showConfirm(`Тапсырыс күйі "${STATUS_LABEL[next]}" болады. Жалғастырамыз ба?`);
+      if (!ok) return;
+    }
     setBusy(true);
     try {
       hapticImpact('medium');
@@ -116,6 +145,11 @@ export function OrderDetailPage() {
       </div>
 
       <div className="card">
+        <h3 className="section-title" style={{ margin: 0 }}>Pipeline</h3>
+        <StageStepper current={order.status} />
+      </div>
+
+      <div className="card">
         <Row label="Тапсырыс беруші" value={order.customerName} />
         {order.customerBin && <Row label="БСН" value={order.customerBin} />}
         {order.contractNumber && <Row label="Келісімшарт №" value={order.contractNumber} />}
@@ -127,6 +161,28 @@ export function OrderDetailPage() {
           <Row label="Жауапты" value={`${order.responsible.fullName} (${ROLE_LABEL[order.responsible.role]})`} />
         )}
       </div>
+
+      {/* Файлдар секциясы — action батырмалардан бұрын. Тендер бөлімі/Директор
+          цех басшысына жібермес бұрын техникалық PDF тіркей алады. */}
+      <div className="section-title-row">
+        <h3 className="section-title" style={{ margin: 0 }}>
+          Файлдар {fileCount > 0 && <span className="section-count">{fileCount}</span>}
+        </h3>
+      </div>
+      {willGoToProduction && !hasTechSpec && (
+        <div className="alert alert--info" style={{ alignItems: 'center' }}>
+          <span aria-hidden>📎</span>
+          <span>
+            <strong>Цех басшысына жіберуден бұрын</strong> техникалық тапсырма (PDF) тіркеңіз —
+            "Стул ученический" сияқты қысқа сипаттама жеткіліксіз болуы мүмкін.
+          </span>
+        </div>
+      )}
+      <FileGallery
+        orderId={order.id}
+        suggestedType={FILE_TYPE_BY_STAGE[order.status] || 'OTHER'}
+        canUpload={user.role !== 'WORKSHOP_WORKER' || order.status === 'PRODUCTION'}
+      />
 
       {(canAdvance || canReject) && (
         <div className="actions">
@@ -254,4 +310,3 @@ function NewTaskForm({ orderId, onCreated, onCancel }: {
     </form>
   );
 }
-

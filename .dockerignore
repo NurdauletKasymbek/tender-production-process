@@ -1,0 +1,33 @@
+# Backend image-ге тиісті емес файлдар
+node_modules
+dist
+*.log
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+.github
+.claude
+.vscode
+.idea
+
+# Frontend бөлек жобаға тиесілі
+frontend
+
+# Документация
+README.md
+DEPLOY.md
+
+# Тестілер
+test
+*.spec.ts
+*.test.ts
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Uploads (бос болуы керек, persistent volume қолданылады)
+uploads

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { Order } from '../types';
 import { StatusBadge } from './StatusBadge';
+import { StageStepper } from './StageStepper';
 import { deadlineLabel, formatMoney, PRIORITY_LABEL } from '../utils/labels';
 
 export function OrderCard({ order }: { order: Order }) {
@@ -21,6 +22,7 @@ export function OrderCard({ order }: { order: Order }) {
           {dl.text}
         </span>
       </div>
+      <StageStepper current={order.status} compact />
       {order.priority > 0 && (
         <div className={`priority-tag priority-tag--${order.priority}`}>
           {PRIORITY_LABEL[order.priority]}

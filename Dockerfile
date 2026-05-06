@@ -1,17 +1,46 @@
 FROM node:20-alpine AS builder
 
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npx prisma generate && npm run build
 
+# Тәуелділіктерді алдымен орнату — кэш үшін
+COPY package.json package-lock.json ./
+
+# Prisma схемасын алдымен көшіру (postinstall: prisma generate сонда жұмыс істейді)
+COPY prisma ./prisma
+
+# Диагностика
+RUN echo "=== Build context ===" && ls -la && \
+    echo "=== prisma dir ===" && ls -la prisma && \
+    echo "=== lock file size ===" && wc -c package-lock.json
+
+# npm install (postinstall автоматты түрде prisma generate шақырады)
+RUN npm install --no-audit --no-fund
+
+# Қалған кодты копирлеу (.dockerignore артық файлдарды шығарып тастайды)
+COPY . .
+
+# Nest build
+RUN npm run build
+
+# ============= Production image =============
 FROM node:20-alpine
+
 WORKDIR /app
+
+# OpenSSL — Prisma үшін Alpine-да керек
+RUN apk add --no-cache openssl
+
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
+ENV NODE_ENV=production
 EXPOSE 3000
-CMD ["node", "dist/main"]
+
+# db push (MVP — migrations папкасы әзірге жоқ) + start
+# Кейін `prisma migrate dev` арқылы migration файлдары жасалғанда
+# мынаны `prisma migrate deploy` дегенге ауыстырамыз.
+# Ескерту: tsconfig include-та `prisma/**/*` болғандықтан, output
+# `dist/src/main.js`-ке шығады (`dist/main.js`-ке емес).
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/src/main"]

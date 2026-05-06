@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Header } from '../../components/Header';
 import { Spinner } from '../../components/Spinner';
 import { EmptyState } from '../../components/EmptyState';
@@ -35,15 +35,45 @@ export function WorkshopHome() {
     }
   };
 
+  const counts = useMemo(() => ({
+    pending: tasks.filter((t) => t.status === 'PENDING').length,
+    inProgress: tasks.filter((t) => t.status === 'IN_PROGRESS').length,
+    blocked: tasks.filter((t) => t.status === 'BLOCKED').length,
+  }), [tasks]);
+
   return (
     <div className="page">
       <Header title="Менің тапсырмаларым" />
 
-      {error && <div className="alert alert--error">{error}</div>}
+      {!loading && tasks.length > 0 && (
+        <div className="stat-grid stat-grid--3">
+          <div className="stat-card">
+            <div className="stat-card__icon" aria-hidden>⏸</div>
+            <div className="stat-card__value">{counts.pending}</div>
+            <div className="stat-card__label">Күтуде</div>
+          </div>
+          <div className="stat-card stat-card--success">
+            <div className="stat-card__icon" aria-hidden>▶</div>
+            <div className="stat-card__value">{counts.inProgress}</div>
+            <div className="stat-card__label">Орындалуда</div>
+          </div>
+          <div className="stat-card stat-card--danger">
+            <div className="stat-card__icon" aria-hidden>⚠</div>
+            <div className="stat-card__value">{counts.blocked}</div>
+            <div className="stat-card__label">Кедергі</div>
+          </div>
+        </div>
+      )}
+
+      {error && <div className="alert alert--error"><span>⚠️</span><span>{error}</span></div>}
       {loading ? (
         <Spinner />
       ) : tasks.length === 0 ? (
-        <EmptyState icon="🎯" title="Белсенді тапсырма жоқ" description="Жаңа тапсырма келгенде Telegram-нан хабарлама келеді." />
+        <EmptyState
+          icon="🎯"
+          title="Белсенді тапсырма жоқ"
+          description="Жаңа тапсырма келгенде Telegram-нан хабарлама келеді."
+        />
       ) : (
         <div className="list">
           {tasks.map((t) => (

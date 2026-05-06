@@ -42,7 +42,11 @@ export function NewOrderPage() {
         notes: form.notes.trim() || undefined,
       });
       hapticNotify('success');
-      await showAlert('Тапсырыс сәтті жасалды');
+      await showAlert(
+        'Тапсырыс сәтті жасалды.\n\n' +
+          'Енді келесі бетте техникалық тапсырманы (PDF/фото) тіркеуге болады — ' +
+          'цех басшысына жіберуден бұрын.',
+      );
       nav(`/orders/${order.id}`, { replace: true });
     } catch (e: any) {
       hapticNotify('error');
@@ -55,7 +59,11 @@ export function NewOrderPage() {
   return (
     <div className="page">
       <Header title="Жаңа тапсырыс" showBell={false} />
-      {error && <div className="alert alert--error">{error}</div>}
+      <div className="info-banner">
+        <strong>Жеке тапсырыс</strong> үшін форма. Goszakup-тан тыс келісімдерді
+        осында қолмен қосыңыз. Сақтаған соң — техникалық тапсырманы (PDF) тіркей аласыз.
+      </div>
+      {error && <div className="alert alert--error"><span>⚠️</span><span>{error}</span></div>}
       <form className="form" onSubmit={submit}>
         <Field label="Тендер нөмірі" required>
           <input className="input" required value={form.tenderNumber}

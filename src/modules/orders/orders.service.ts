@@ -136,6 +136,62 @@ export class OrdersService {
     return updated;
   }
 
+  /** CSV экспорт (Excel ашуға болады, BOM қосылған) */
+  async exportCsv(filters: { status?: OrderStatus }): Promise<string> {
+    const orders = await this.prisma.order.findMany({
+      where: filters.status ? { status: filters.status } : {},
+      include: {
+        responsible: { select: { fullName: true, role: true } },
+      },
+      orderBy: [{ priority: 'desc' }, { deadline: 'asc' }],
+    });
+
+    const header = [
+      'Тендер №', 'Келісімшарт №', 'Goszakup ID',
+      'Тапсырыс беруші', 'БСН',
+      'Өнім', 'Сипаттама', 'Саны', 'Өлшем бірлігі',
+      'Сома', 'Валюта',
+      'Кезең', 'Басымдық',
+      'Жауапты', 'Рөлі',
+      'Жеткізу мерзімі', 'Мекенжай',
+      'Жасалған күні',
+    ];
+
+    const rows = orders.map((o) => [
+      o.tenderNumber,
+      o.contractNumber || '',
+      o.goszakupId || '',
+      o.customerName,
+      o.customerBin || '',
+      o.productName,
+      o.productDescription || '',
+      o.quantity.toString(),
+      o.unit,
+      o.totalAmount.toString(),
+      o.currency,
+      o.status,
+      o.priority.toString(),
+      o.responsible?.fullName || '',
+      o.responsible?.role || '',
+      o.deadline.toISOString().slice(0, 10),
+      o.deliveryAddress || '',
+      o.createdAt.toISOString().slice(0, 10),
+    ]);
+
+    const escape = (v: string) => {
+      const needsQuotes = /[",\n;]/.test(v);
+      const escaped = v.replace(/"/g, '""');
+      return needsQuotes ? `"${escaped}"` : escaped;
+    };
+
+    const csv = [header, ...rows]
+      .map((r) => r.map((c) => escape(c ?? '')).join(';'))
+      .join('\r\n');
+
+    // BOM — Excel-де UTF-8 дұрыс ашылу үшін
+    return '\uFEFF' + csv;
+  }
+
   /** Басшылық дашборды үшін статистика */
   async dashboardStats() {
     const [byStatus, overdue, totalActive] = await Promise.all([

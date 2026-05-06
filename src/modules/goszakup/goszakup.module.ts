@@ -1,6 +1,6 @@
-import { Controller, Post, UseGuards, Module } from '@nestjs/common';
+import { Controller, Get, Post, Query, UseGuards, Module } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { GoszakupService } from './goszakup.service';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -16,8 +16,24 @@ export class GoszakupController {
 
   @Post('sync')
   @Roles(UserRole.ADMIN, UserRole.TENDER_DEPARTMENT)
-  sync() {
-    return this.goszakup.manualSync();
+  @ApiOperation({ summary: 'Goszakup-тан қолмен синхрондау' })
+  @ApiQuery({ name: 'silent', required: false, description: 'true → Telegram хабарламасыз (бастапқы импорт)' })
+  @ApiQuery({ name: 'allYears', required: false, description: 'true → барлық жылдар (әдепкі: ағымдағы жыл)' })
+  sync(
+    @Query('silent') silent?: string,
+    @Query('allYears') allYears?: string,
+  ) {
+    return this.goszakup.manualSync({
+      silent: silent === 'true',
+      allYears: allYears === 'true',
+    });
+  }
+
+  @Get('status')
+  @Roles(UserRole.ADMIN, UserRole.TENDER_DEPARTMENT, UserRole.DIRECTOR)
+  @ApiOperation({ summary: 'Goszakup интеграциясының күйі' })
+  status() {
+    return { configured: this.goszakup.isConfigured() };
   }
 }
 

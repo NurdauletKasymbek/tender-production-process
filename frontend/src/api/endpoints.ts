@@ -1,6 +1,7 @@
 import { api } from './client';
 import type {
-  AuthResponse, DashboardStats, Notification, Order, OrderStatus, ProductionTask, TaskStatus,
+  AuthResponse, DashboardStats, FileType, Notification, Order, OrderFile,
+  OrderStatus, ProductionTask, TaskStatus,
 } from '../types';
 
 export const authApi = {
@@ -20,6 +21,28 @@ export const ordersApi = {
   get: (id: string) => api.get<Order>(`/orders/${id}`).then((r) => r.data),
 
   dashboard: () => api.get<DashboardStats>('/orders/dashboard').then((r) => r.data),
+
+  exportCsvUrl: (status?: OrderStatus) => {
+    const base = (api.defaults.baseURL || '/api').replace(/\/$/, '');
+    const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+    return `${base}/orders/export.csv${qs}`;
+  },
+
+  downloadCsv: async (status?: OrderStatus) => {
+    const res = await api.get('/orders/export.csv', {
+      params: status ? { status } : {},
+      responseType: 'blob',
+    });
+    const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `orders-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 
   changeStatus: (id: string, next: OrderStatus, body: { comment?: string; responsibleId?: string } = {}) =>
     api.patch<Order>(`/orders/${id}/status/${next}`, body).then((r) => r.data),
@@ -51,6 +74,43 @@ export const productionApi = {
 
   updateTaskStatus: (id: string, status: TaskStatus) =>
     api.patch<ProductionTask>(`/production/tasks/${id}/status/${status}`).then((r) => r.data),
+};
+
+export const goszakupApi = {
+  status: () => api.get<{ configured: boolean }>('/goszakup/status').then((r) => r.data),
+  sync: (silent = false) =>
+    api.post<{
+      ok: boolean;
+      configured?: boolean;
+      fetched?: number;
+      created?: number;
+      skipped?: number;
+      silent?: boolean;
+      message?: string;
+    }>('/goszakup/sync', undefined, { params: silent ? { silent: 'true' } : {} }).then((r) => r.data),
+};
+
+export const filesApi = {
+  list: (orderId: string) =>
+    api.get<OrderFile[]>(`/files/order/${orderId}`).then((r) => r.data),
+
+  upload: (params: { orderId: string; file: File; fileType: FileType }) => {
+    const fd = new FormData();
+    fd.append('orderId', params.orderId);
+    fd.append('fileType', params.fileType);
+    fd.append('file', params.file);
+    return api.post<OrderFile>('/files/upload', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data);
+  },
+
+  remove: (id: string) => api.delete(`/files/${id}`).then((r) => r.data),
+
+  /** URL-ді тікелей <img src> немесе <a href> үшін қолдану */
+  downloadUrl: (id: string, inline = false) => {
+    const base = (api.defaults.baseURL || '/api').replace(/\/$/, '');
+    return `${base}/files/${id}${inline ? '?inline=true' : ''}`;
+  },
 };
 
 export const notificationsApi = {

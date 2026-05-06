@@ -1,9 +1,10 @@
 import {
-  Body, Controller, Get, Param, Post, Patch, Query, UseGuards, Req,
+  Body, Controller, Get, Param, Post, Patch, Query, Res, UseGuards, Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { OrderStatus, UserRole } from '@prisma/client';
+import type { Response } from 'express';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto, ChangeStatusDto } from './dto/order.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -41,6 +42,23 @@ export class OrdersController {
   @ApiOperation({ summary: 'Басшылық үшін статистика' })
   dashboard() {
     return this.orders.dashboardStats();
+  }
+
+  @Get('export.csv')
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR)
+  @ApiOperation({ summary: 'Тапсырыстарды CSV-ке экспорттау (Excel-ге сай)' })
+  async exportCsv(
+    @Query('status') status: OrderStatus | undefined,
+    @Res() res: Response,
+  ) {
+    const csv = await this.orders.exportCsv({ status });
+    const date = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="orders-${date}.csv"`,
+    );
+    res.send(csv);
   }
 
   @Get(':id')

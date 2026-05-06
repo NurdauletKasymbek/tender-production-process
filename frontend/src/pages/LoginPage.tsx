@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { isTelegramApp } from '../utils/telegram';
 import type { UserRole } from '../types';
-import { ROLE_LABEL } from '../utils/labels';
+import { ROLE_LABEL, ROLE_ICON } from '../utils/labels';
 import { Spinner } from '../components/Spinner';
 
 const DEMO_ROLES: UserRole[] = [
@@ -25,7 +25,9 @@ export function LoginPage() {
   return (
     <div className="login">
       <div className="login__hero">
-        <div className="login__logo">📦</div>
+        <div className="login__logo" aria-hidden>
+          <span style={{ position: 'relative', zIndex: 1 }}>📦</span>
+        </div>
         <h1 className="login__title">Тендер · Өндіріс</h1>
         <p className="login__subtitle">
           Goszakup тендерлерін және өндіріс циклін бір жерден басқарыңыз.
@@ -33,8 +35,12 @@ export function LoginPage() {
       </div>
 
       {isTelegramApp() ? (
-        <button className="btn btn--primary btn--lg" onClick={() => void loginTelegram()}>
-          Telegram арқылы кіру
+        <button
+          className="btn btn--primary btn--lg btn--block"
+          onClick={() => void loginTelegram()}
+        >
+          <span>Telegram арқылы кіру</span>
+          <span aria-hidden>→</span>
         </button>
       ) : (
         <>
@@ -48,6 +54,7 @@ export function LoginPage() {
                 className="role-grid__item"
                 onClick={() => void loginAsDemo(role)}
               >
+                <span className="role-grid__icon" aria-hidden>{ROLE_ICON[role]}</span>
                 <span className="role-grid__label">{ROLE_LABEL[role]}</span>
                 <span className="role-grid__code">{role}</span>
               </button>
@@ -56,7 +63,12 @@ export function LoginPage() {
         </>
       )}
 
-      {error && <div className="alert alert--error">{error}</div>}
+      {error && (
+        <div className="alert alert--error">
+          <span aria-hidden>⚠️</span>
+          <span>{error}</span>
+        </div>
+      )}
     </div>
   );
 }
