@@ -38,5 +38,7 @@ COPY package.json package-lock.json ./
 ENV NODE_ENV=production
 EXPOSE 3000
 
-# migrate deploy + start
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+# db push (MVP — migrations папкасы әзірге жоқ) + start
+# Кейін `prisma migrate dev` арқылы migration файлдары жасалғанда
+# мынаны `prisma migrate deploy` дегенге ауыстырамыз.
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/main"]
