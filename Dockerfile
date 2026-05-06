@@ -5,19 +5,22 @@ WORKDIR /app
 # Тәуелділіктерді алдымен орнату — кэш үшін
 COPY package.json package-lock.json ./
 
-# Диагностика — файлдар бар-жоғын тексеру
+# Prisma схемасын алдымен көшіру (postinstall: prisma generate сонда жұмыс істейді)
+COPY prisma ./prisma
+
+# Диагностика
 RUN echo "=== Build context ===" && ls -la && \
-    echo "=== package.json ===" && head -20 package.json && \
+    echo "=== prisma dir ===" && ls -la prisma && \
     echo "=== lock file size ===" && wc -c package-lock.json
 
-# npm install (npm ci-ден гөрі төзімді, lock-ты қажет етеді бірақ minor mismatch-ке жұмсақ)
-RUN npm install --no-audit --no-fund --prefer-offline
+# npm install (postinstall автоматты түрде prisma generate шақырады)
+RUN npm install --no-audit --no-fund
 
 # Қалған кодты копирлеу (.dockerignore артық файлдарды шығарып тастайды)
 COPY . .
 
-# Prisma client + nest build
-RUN npx prisma generate && npm run build
+# Nest build
+RUN npm run build
 
 # ============= Production image =============
 FROM node:20-alpine
