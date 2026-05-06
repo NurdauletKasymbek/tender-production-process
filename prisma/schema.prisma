@@ -1,0 +1,230 @@
+// Tender Production MVP — деректер моделі
+// Барлық 8 рөл, толық цикл: Goszakup → Тексеру → Растау → Өндіріс → Қаптау → Тиеу → Логистика → Жеткізу → Жабу
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============== РӨЛДЕР ==============
+enum UserRole {
+  ADMIN              // Әкімші
+  TENDER_DEPARTMENT  // Тендерлік бөлім
+  DIRECTOR           // Басшы
+  PRODUCTION_HEAD    // Өндіріс бастығы
+  WORKSHOP_WORKER    // Цех маманы
+  PACKAGING          // Қаптау
+  LOADING            // Тиеу
+  LOGISTICS          // Логист
+}
+
+// ============== ТАПСЫРЫС СТАТУСТАРЫ ==============
+enum OrderStatus {
+  NEW_TENDER     // Жаңа тендер
+  REVIEW         // Тексеру (тендерлік бөлім)
+  CONFIRMATION   // Растау (басшы)
+  PRODUCTION     // Өндіріс
+  PACKAGING      // Қаптау
+  LOADING        // Тиеу
+  LOGISTICS      // Логистика (жолда)
+  DELIVERY       // Жеткізу
+  CLOSED         // Жабылған
+  REJECTED       // Қабылданбаған
+}
+
+// ============== ТАПСЫРМА СТАТУСТАРЫ (өндіріс ішінде) ==============
+enum TaskStatus {
+  PENDING      // Күтуде
+  IN_PROGRESS  // Орындалуда
+  COMPLETED    // Аяқталды
+  BLOCKED      // Кедергі бар
+}
+
+// ============== ҚОЛДАНУШЫ ==============
+model User {
+  id              String   @id @default(uuid())
+  telegramId      BigInt   @unique
+  telegramUsername String?
+  fullName        String
+  phone           String?
+  role            UserRole
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Қарым-қатынастар
+  ordersAsResponsible Order[]       @relation("OrderResponsible")
+  tasksAssigned       ProductionTask[] @relation("TaskAssignee")
+  statusHistory       OrderStatusHistory[]
+  uploadedFiles       OrderFile[]
+  notifications       Notification[]
+
+  @@index([role])
+  @@index([telegramId])
+}
+
+// ============== ТАПСЫРЫС ==============
+model Order {
+  id              String      @id @default(uuid())
+  
+  // Goszakup деректері
+  goszakupId      String?     @unique  // тендердегі лот нөмірі
+  tenderNumber    String                // тендер нөмірі
+  contractNumber  String?               // келісімшарт нөмірі
+  customerName    String                // тапсырыс беруші (мемлекеттік орган)
+  customerBin     String?               // БСН
+  
+  // Өнім
+  productName     String
+  productDescription String?
+  quantity        Int
+  unit            String      @default("дана")
+  totalAmount     Decimal     @db.Decimal(15, 2)
+  currency        String      @default("KZT")
+  
+  // Мерзімдер
+  contractDate    DateTime?
+  deadline        DateTime              // жеткізу мерзімі
+  startedAt       DateTime?
+  completedAt     DateTime?
+  
+  // Жеткізу
+  deliveryAddress String?
+  deliveryContact String?
+  
+  // Күй
+  status          OrderStatus @default(NEW_TENDER)
+  priority        Int         @default(0)  // 0-қалыпты, 1-жоғары, 2-шұғыл
+  
+  // Жауапты адам (ағымдағы кезеңде)
+  responsibleId   String?
+  responsible     User?       @relation("OrderResponsible", fields: [responsibleId], references: [id])
+  
+  notes           String?
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Қарым-қатынастар
+  statusHistory   OrderStatusHistory[]
+  productionTasks ProductionTask[]
+  files           OrderFile[]
+  notifications   Notification[]
+
+  @@index([status])
+  @@index([deadline])
+  @@index([goszakupId])
+}
+
+// ============== ТАПСЫРЫС МӘРТЕБЕСІНІҢ ТАРИХЫ ==============
+model OrderStatusHistory {
+  id          String      @id @default(uuid())
+  orderId     String
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  fromStatus  OrderStatus?
+  toStatus    OrderStatus
+  
+  changedById String
+  changedBy   User        @relation(fields: [changedById], references: [id])
+  
+  comment     String?
+  createdAt   DateTime    @default(now())
+
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+// ============== ӨНДІРІС ТАПСЫРМАЛАРЫ ==============
+// Өндіріс бастығы тапсырысты ұсақ тапсырмаларға бөліп, цех мамандарына таратады
+model ProductionTask {
+  id          String     @id @default(uuid())
+  orderId     String
+  order       Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  title       String
+  description String?
+  
+  assigneeId  String?
+  assignee    User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  
+  status      TaskStatus @default(PENDING)
+  
+  startedAt   DateTime?
+  completedAt DateTime?
+  deadline    DateTime?
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([orderId])
+  @@index([assigneeId])
+  @@index([status])
+}
+
+// ============== ФАЙЛДАР (фото, PDF) ==============
+enum FileType {
+  CONTRACT       // келісімшарт
+  TECHNICAL_SPEC // техникалық тапсырма
+  PRODUCTION_PHOTO // өндіріс фотосы
+  PACKAGING_PHOTO  // қаптау фотосы
+  LOADING_PHOTO    // тиеу фотосы
+  DELIVERY_PHOTO   // жеткізу фотосы
+  INVOICE          // шот-фактура
+  OTHER
+}
+
+model OrderFile {
+  id          String   @id @default(uuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  fileName    String
+  fileType    FileType
+  filePath    String   // серверде сақталған жол
+  mimeType    String
+  sizeBytes   Int
+  
+  uploadedById String
+  uploadedBy   User    @relation(fields: [uploadedById], references: [id])
+  
+  createdAt   DateTime @default(now())
+
+  @@index([orderId])
+}
+
+// ============== ХАБАРЛАМАЛАР (Telegram) ==============
+enum NotificationType {
+  STATUS_CHANGE   // статус өзгерді
+  TASK_ASSIGNED   // тапсырма берілді
+  DEADLINE_WARNING // мерзім жақындады
+  DELAY           // кешіктіру
+  COMPLETED       // аяқталды
+  NEW_ORDER       // жаңа тапсырыс (Goszakup-тан)
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  orderId     String?
+  order       Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  
+  type        NotificationType
+  title       String
+  message     String
+  
+  isSent      Boolean          @default(false)
+  isRead      Boolean          @default(false)
+  sentAt      DateTime?
+  
+  createdAt   DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@index([isSent])
+}

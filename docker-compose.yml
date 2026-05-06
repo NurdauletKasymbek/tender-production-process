@@ -1,0 +1,30 @@
+version: '3.9'
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: tender_mvp
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build: .
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/tender_mvp?schema=public
+      JWT_SECRET: change_me
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_WEBAPP_URL: ${TELEGRAM_WEBAPP_URL}
+      GOSZAKUP_API_TOKEN: ${GOSZAKUP_API_TOKEN}
+      GOSZAKUP_BIN: ${GOSZAKUP_BIN}
+    ports:
+      - '3000:3000'
+    command: sh -c "npx prisma migrate deploy && node dist/main"
+
+volumes:
+  pgdata:
