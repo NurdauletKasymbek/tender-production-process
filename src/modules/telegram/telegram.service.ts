@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as TelegramBot from 'node-telegram-bot-api';
+import TelegramBot = require('node-telegram-bot-api');
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 @Injectable()
