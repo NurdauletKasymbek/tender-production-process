@@ -8,10 +8,10 @@ import { LogisticsHome } from './roles/LogisticsHome';
 import { AdminHome } from './roles/AdminHome';
 
 export function HomePage() {
-  const { user } = useAuth();
-  if (!user) return null;
+  const { user, effectiveRole } = useAuth();
+  if (!user || !effectiveRole) return null;
 
-  switch (user.role) {
+  switch (effectiveRole) {
     case 'ADMIN': return <AdminHome />;
     case 'TENDER_DEPARTMENT': return <TenderDepartmentHome />;
     case 'DIRECTOR': return <DirectorHome />;

@@ -3,13 +3,18 @@ import { useAuth } from '../hooks/useAuth';
 import { ROLE_LABEL } from '../utils/labels';
 
 export function Header({ title, showBell = true }: { title: string; showBell?: boolean }) {
-  const { user } = useAuth();
+  const { user, effectiveRole, isImpersonating } = useAuth();
   const nav = useNavigate();
   return (
     <header className="header">
       <div>
         <div className="header__title">{title}</div>
-        {user && <div className="header__subtitle">{user.fullName} · {ROLE_LABEL[user.role]}</div>}
+        {user && effectiveRole && (
+          <div className="header__subtitle">
+            {user.fullName} · {ROLE_LABEL[effectiveRole]}
+            {isImpersonating && <span style={{ color: 'var(--brand-500)' }}> · 🧪 тест</span>}
+          </div>
+        )}
       </div>
       {showBell && (
         <button className="icon-btn" aria-label="Хабарламалар" onClick={() => nav('/notifications')}>

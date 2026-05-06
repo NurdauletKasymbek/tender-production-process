@@ -51,7 +51,7 @@ const ROLE_CAN_REJECT: Record<OrderStatus, string[]> = {
 export function OrderDetailPage() {
   const { id = '' } = useParams<{ id: string }>();
   const nav = useNavigate();
-  const { user } = useAuth();
+  const { user, effectiveRole } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,12 +74,12 @@ export function OrderDetailPage() {
 
   if (loading) return <Spinner />;
   if (error) return <div className="page"><Header title="Тапсырыс" showBell={false} /><div className="alert alert--error">{error}</div></div>;
-  if (!order || !user) return null;
+  if (!order || !user || !effectiveRole) return null;
 
   const next = NEXT_STATUS_BY_CURRENT[order.status];
-  const canAdvance = next && ROLE_CAN_ADVANCE[order.status]?.includes(user.role);
-  const canReject = ROLE_CAN_REJECT[order.status]?.includes(user.role);
-  const canAddTasks = order.status === 'PRODUCTION' && (user.role === 'PRODUCTION_HEAD' || user.role === 'ADMIN');
+  const canAdvance = next && ROLE_CAN_ADVANCE[order.status]?.includes(effectiveRole);
+  const canReject = ROLE_CAN_REJECT[order.status]?.includes(effectiveRole);
+  const canAddTasks = order.status === 'PRODUCTION' && (effectiveRole === 'PRODUCTION_HEAD' || effectiveRole === 'ADMIN');
   const fileCount = order.files?.length ?? 0;
   const hasTechSpec = !!order.files?.some(
     (f) => f.fileType === 'TECHNICAL_SPEC' || f.fileType === 'CONTRACT',
@@ -87,7 +87,7 @@ export function OrderDetailPage() {
 
   /** Директор CONFIRMATION-да 2 нұсқаны таңдайды: цех немесе склад */
   const isDirectorConfirmation =
-    order.status === 'CONFIRMATION' && (user.role === 'DIRECTOR' || user.role === 'ADMIN');
+    order.status === 'CONFIRMATION' && (effectiveRole === 'DIRECTOR' || effectiveRole === 'ADMIN');
   const willGoToProduction = order.status === 'CONFIRMATION' && next === 'PRODUCTION';
 
   const advanceTo = async (target: OrderStatus) => {
@@ -189,7 +189,7 @@ export function OrderDetailPage() {
       <FileGallery
         orderId={order.id}
         suggestedType={FILE_TYPE_BY_STAGE[order.status] || 'OTHER'}
-        canUpload={user.role !== 'WORKSHOP_WORKER' || order.status === 'PRODUCTION'}
+        canUpload={effectiveRole !== 'WORKSHOP_WORKER' || order.status === 'PRODUCTION'}
       />
 
       {(canAdvance || canReject) && (

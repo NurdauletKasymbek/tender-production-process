@@ -21,11 +21,11 @@ const HOME_LABEL: Record<UserRole, string> = {
 };
 
 export function BottomNav() {
-  const { user } = useAuth();
-  if (!user) return null;
+  const { user, effectiveRole } = useAuth();
+  if (!user || !effectiveRole) return null;
 
   const items: NavItem[] = [
-    { to: '/', label: HOME_LABEL[user.role], icon: <HomeIcon /> },
+    { to: '/', label: HOME_LABEL[effectiveRole], icon: <HomeIcon /> },
     { to: '/orders', label: 'Тапсырыстар', icon: <ListIcon /> },
     { to: '/notifications', label: 'Хабарлама', icon: <BellIcon /> },
     { to: '/profile', label: 'Профиль', icon: <UserIcon /> },

@@ -6,21 +6,33 @@ import { getInitData, isTelegramApp } from '../utils/telegram';
 
 interface AuthCtx {
   user: User | null;
+  /** UI-да қолданылатын рөл — ADMIN override қойса соған ауысады */
+  effectiveRole: UserRole | null;
+  /** ADMIN басқа рөл болып тестілеп жатыр ма */
+  isImpersonating: boolean;
   loading: boolean;
   error: string | null;
   loginTelegram: () => Promise<void>;
   loginAsDemo: (role: UserRole) => Promise<void>;
+  setRoleOverride: (role: UserRole | null) => void;
   logout: () => void;
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
 
 const DEMO_USER_KEY = 'tender_app_demo_user';
+const ROLE_OVERRIDE_KEY = 'tender_app_role_override';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [roleOverride, setRoleOverrideState] = useState<UserRole | null>(() => {
+    try {
+      const v = localStorage.getItem(ROLE_OVERRIDE_KEY);
+      return v ? (v as UserRole) : null;
+    } catch { return null; }
+  });
 
   const loadDemoUser = useCallback((): User | null => {
     try {
@@ -62,7 +74,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     tokenStorage.clear();
     localStorage.removeItem(DEMO_USER_KEY);
+    localStorage.removeItem(ROLE_OVERRIDE_KEY);
+    setRoleOverrideState(null);
     setUser(null);
+  }, []);
+
+  /** ADMIN басқа рөл ретінде тестілеу — UI-да ғана. Backend бәрібір ADMIN құқықтарын қолданады. */
+  const setRoleOverride = useCallback((role: UserRole | null) => {
+    if (role) localStorage.setItem(ROLE_OVERRIDE_KEY, role);
+    else localStorage.removeItem(ROLE_OVERRIDE_KEY);
+    setRoleOverrideState(role);
   }, []);
 
   // Авто-кіру
@@ -98,9 +119,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const effectiveRole = useMemo<UserRole | null>(() => {
+    if (!user) return null;
+    if (user.role === 'ADMIN' && roleOverride) return roleOverride;
+    return user.role;
+  }, [user, roleOverride]);
+
+  const isImpersonating = !!(user?.role === 'ADMIN' && roleOverride && roleOverride !== 'ADMIN');
+
   const value = useMemo<AuthCtx>(
-    () => ({ user, loading, error, loginTelegram, loginAsDemo, logout }),
-    [user, loading, error, loginTelegram, loginAsDemo, logout],
+    () => ({
+      user, effectiveRole, isImpersonating,
+      loading, error,
+      loginTelegram, loginAsDemo, setRoleOverride, logout,
+    }),
+    [user, effectiveRole, isImpersonating, loading, error, loginTelegram, loginAsDemo, setRoleOverride, logout],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
