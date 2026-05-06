@@ -84,10 +84,19 @@ export function AdminHome() {
         </>
       )}
 
-      <Link to="/orders/new" className="btn btn--primary btn--lg btn--block">
-        <span aria-hidden>+</span>
-        <span>Тапсырыс жасау</span>
-      </Link>
+      <div className="flex gap-sm" style={{ flexDirection: 'column' }}>
+        <Link to="/orders/new" className="btn btn--primary btn--lg btn--block">
+          <span aria-hidden>+</span>
+          <span>Тапсырыс жасау</span>
+        </Link>
+        <button
+          className="btn btn--soft btn--block"
+          onClick={() => void ordersApi.downloadCsv()}
+        >
+          <span aria-hidden>📊</span>
+          <span>Excel-ге экспорттау (CSV)</span>
+        </button>
+      </div>
 
       <h3 className="section-title">Соңғы тапсырыстар</h3>
 

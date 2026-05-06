@@ -4,12 +4,18 @@ import { Spinner } from '../../components/Spinner';
 import { OrderCard } from '../../components/OrderCard';
 import { EmptyState } from '../../components/EmptyState';
 import { ordersApi } from '../../api/endpoints';
-import type { DashboardStats, Order } from '../../types';
+import type { DashboardStats, Order, OrderStatus } from '../../types';
 import { STATUS_COLOR, STATUS_LABEL } from '../../utils/labels';
+
+const STAGES: OrderStatus[] = [
+  'NEW_TENDER', 'REVIEW', 'CONFIRMATION',
+  'PRODUCTION', 'PACKAGING', 'LOADING', 'LOGISTICS', 'DELIVERY',
+];
 
 export function DirectorHome() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [confirmation, setConfirmation] = useState<Order[]>([]);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [stageFilter, setStageFilter] = useState<OrderStatus | 'ALL'>('CONFIRMATION');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,10 +24,10 @@ export function DirectorHome() {
       try {
         const [s, list] = await Promise.all([
           ordersApi.dashboard(),
-          ordersApi.list({ status: 'CONFIRMATION' }),
+          ordersApi.list(),
         ]);
         setStats(s);
-        setConfirmation(list);
+        setAllOrders(list);
       } catch (e: any) {
         setError(e.message || 'Деректерді жүктеу қатесі');
       } finally {
@@ -31,6 +37,12 @@ export function DirectorHome() {
   }, []);
 
   if (loading) return <Spinner />;
+
+  const filtered = stageFilter === 'ALL'
+    ? allOrders.filter((o) => o.status !== 'CLOSED' && o.status !== 'REJECTED')
+    : allOrders.filter((o) => o.status === stageFilter);
+
+  const confirmationCount = allOrders.filter((o) => o.status === 'CONFIRMATION').length;
 
   return (
     <div className="page">
@@ -54,7 +66,7 @@ export function DirectorHome() {
             </div>
             <div className="stat-card stat-card--warning">
               <div className="stat-card__icon" aria-hidden>📥</div>
-              <div className="stat-card__value">{confirmation.length}</div>
+              <div className="stat-card__value">{confirmationCount}</div>
               <div className="stat-card__label">Растауды күтуде</div>
             </div>
           </div>
@@ -76,16 +88,45 @@ export function DirectorHome() {
         </>
       )}
 
-      <h3 className="section-title">Растауды күтуде</h3>
-      {confirmation.length === 0 ? (
+      <button
+        className="btn btn--soft btn--block"
+        onClick={() => void ordersApi.downloadCsv()}
+      >
+        <span aria-hidden>📊</span>
+        <span>Excel-ге экспорттау (CSV)</span>
+      </button>
+
+      <h3 className="section-title">Барлық тапсырыстар</h3>
+      <div className="chips">
+        <button
+          className={`chip ${stageFilter === 'ALL' ? 'is-active' : ''}`}
+          onClick={() => setStageFilter('ALL')}
+        >
+          Барлығы ({allOrders.filter((o) => o.status !== 'CLOSED' && o.status !== 'REJECTED').length})
+        </button>
+        {STAGES.map((s) => {
+          const count = allOrders.filter((o) => o.status === s).length;
+          return (
+            <button
+              key={s}
+              className={`chip ${stageFilter === s ? 'is-active' : ''}`}
+              onClick={() => setStageFilter(s)}
+            >
+              {STATUS_LABEL[s]} {count > 0 && `(${count})`}
+            </button>
+          );
+        })}
+      </div>
+
+      {filtered.length === 0 ? (
         <EmptyState
-          icon="✅"
-          title="Растауды күтетін тапсырыс жоқ"
-          description="Тендерлік бөлім тексеруден өткізген соң мұнда көрсетіледі."
+          icon="📭"
+          title="Тапсырыс жоқ"
+          description="Таңдалған кезеңде тапсырыстар жоқ"
         />
       ) : (
         <div className="list">
-          {confirmation.map((o) => <OrderCard key={o.id} order={o} />)}
+          {filtered.map((o) => <OrderCard key={o.id} order={o} />)}
         </div>
       )}
     </div>

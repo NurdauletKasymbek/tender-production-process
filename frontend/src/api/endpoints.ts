@@ -22,6 +22,28 @@ export const ordersApi = {
 
   dashboard: () => api.get<DashboardStats>('/orders/dashboard').then((r) => r.data),
 
+  exportCsvUrl: (status?: OrderStatus) => {
+    const base = (api.defaults.baseURL || '/api').replace(/\/$/, '');
+    const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+    return `${base}/orders/export.csv${qs}`;
+  },
+
+  downloadCsv: async (status?: OrderStatus) => {
+    const res = await api.get('/orders/export.csv', {
+      params: status ? { status } : {},
+      responseType: 'blob',
+    });
+    const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `orders-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
   changeStatus: (id: string, next: OrderStatus, body: { comment?: string; responsibleId?: string } = {}) =>
     api.patch<Order>(`/orders/${id}/status/${next}`, body).then((r) => r.data),
 
