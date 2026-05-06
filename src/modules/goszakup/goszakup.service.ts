@@ -155,7 +155,7 @@ export class GoszakupService {
   }
 
   /** Келісімшартты тапсырысқа айналдыру (бар болса өткізіп жібереді) */
-  private async processContract(c: ContractNode): Promise<boolean> {
+  private async processContract(c: ContractNode, opts: { silent?: boolean } = {}): Promise<boolean> {
     const goszakupId = String(c.id);
     const exists = await this.prisma.order.findUnique({ where: { goszakupId } });
     if (exists) return false;
@@ -196,21 +196,26 @@ export class GoszakupService {
 
     this.logger.log(`✅ Жаңа тапсырыс: ${order.tenderNumber}`);
 
-    await this.notifications.notifyByRole(
-      UserRole.TENDER_DEPARTMENT,
-      'NEW_ORDER',
-      'Goszakup-тан жаңа тендер келді',
-      `Тендер №${order.tenderNumber}\n` +
-        `Тапсырыс беруші: ${order.customerName}\n` +
-        `Сома: ${Number(c.contractSum).toLocaleString('kk-KZ')} ${order.currency}\n` +
-        `Мерзім: ${deadline.toISOString().slice(0, 10)}`,
-      order.id,
-    );
+    if (!opts.silent) {
+      await this.notifications.notifyByRole(
+        UserRole.TENDER_DEPARTMENT,
+        'NEW_ORDER',
+        'Goszakup-тан жаңа тендер келді',
+        `Тендер №${order.tenderNumber}\n` +
+          `Тапсырыс беруші: ${order.customerName}\n` +
+          `Сома: ${Number(c.contractSum).toLocaleString('kk-KZ')} ${order.currency}\n` +
+          `Мерзім: ${deadline.toISOString().slice(0, 10)}`,
+        order.id,
+      );
+    }
     return true;
   }
 
-  /** Админ батырмасы үшін қолмен синхрондау */
-  async manualSync() {
+  /**
+   * Админ батырмасы үшін қолмен синхрондау.
+   * `silent: true` — Telegram хабарламаларсыз (бастапқы импорт үшін).
+   */
+  async manualSync(opts: { silent?: boolean } = {}) {
     if (!this.isConfigured()) {
       return {
         ok: false,
@@ -222,7 +227,7 @@ export class GoszakupService {
       const contracts = await this.fetchWonLots();
       let created = 0;
       for (const c of contracts) {
-        if (await this.processContract(c)) created += 1;
+        if (await this.processContract(c, { silent: opts.silent })) created += 1;
       }
       return {
         ok: true,
@@ -230,6 +235,7 @@ export class GoszakupService {
         fetched: contracts.length,
         created,
         skipped: contracts.length - created,
+        silent: !!opts.silent,
       };
     } catch (e: any) {
       return {

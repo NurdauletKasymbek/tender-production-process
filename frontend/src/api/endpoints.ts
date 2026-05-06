@@ -78,15 +78,16 @@ export const productionApi = {
 
 export const goszakupApi = {
   status: () => api.get<{ configured: boolean }>('/goszakup/status').then((r) => r.data),
-  sync: () =>
+  sync: (silent = false) =>
     api.post<{
       ok: boolean;
       configured?: boolean;
       fetched?: number;
       created?: number;
       skipped?: number;
+      silent?: boolean;
       message?: string;
-    }>('/goszakup/sync').then((r) => r.data),
+    }>('/goszakup/sync', undefined, { params: silent ? { silent: 'true' } : {} }).then((r) => r.data),
 };
 
 export const filesApi = {

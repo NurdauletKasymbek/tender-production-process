@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { goszakupApi } from '../api/endpoints';
-import { hapticImpact, hapticNotify } from '../utils/telegram';
+import { hapticImpact, hapticNotify, showConfirm } from '../utils/telegram';
 
 interface SyncResult {
   ok: boolean;
@@ -8,12 +8,13 @@ interface SyncResult {
   fetched?: number;
   created?: number;
   skipped?: number;
+  silent?: boolean;
   message?: string;
 }
 
 export function GoszakupSync({ onSynced }: { onSynced?: () => void }) {
   const [configured, setConfigured] = useState<boolean | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<'sync' | 'bulk' | null>(null);
   const [last, setLast] = useState<SyncResult | null>(null);
 
   useEffect(() => {
@@ -22,11 +23,18 @@ export function GoszakupSync({ onSynced }: { onSynced?: () => void }) {
       .catch(() => setConfigured(false));
   }, []);
 
-  const sync = async () => {
-    setBusy(true);
+  const run = async (silent: boolean) => {
+    if (silent) {
+      const ok = await showConfirm(
+        'Бастапқы импорт: барлық бар келісімшарттар жасалады, бірақ Telegram хабарламасы жіберілмейді. ' +
+          'Мұны бір рет жасайсыз. Жалғастырамыз ба?',
+      );
+      if (!ok) return;
+    }
+    setBusy(silent ? 'bulk' : 'sync');
     try {
       hapticImpact('light');
-      const res = await goszakupApi.sync();
+      const res = await goszakupApi.sync(silent);
       setLast(res);
       hapticNotify(res.ok ? 'success' : 'error');
       if (res.ok && res.created && res.created > 0) onSynced?.();
@@ -34,7 +42,7 @@ export function GoszakupSync({ onSynced }: { onSynced?: () => void }) {
       setLast({ ok: false, message: e.message || 'Қате' });
       hapticNotify('error');
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
@@ -47,7 +55,7 @@ export function GoszakupSync({ onSynced }: { onSynced?: () => void }) {
             Жеңіске жеткен тендерлерді автоматты алу
           </div>
         </div>
-        <span className={`status-badge status-badge--sm`} style={{
+        <span className="status-badge status-badge--sm" style={{
           background: configured ? 'var(--success-bg)' : 'var(--warning-bg)',
           color: configured ? 'var(--success)' : 'var(--warning)',
         }}>
@@ -67,10 +75,10 @@ export function GoszakupSync({ onSynced }: { onSynced?: () => void }) {
 
       <button
         className="btn btn--soft btn--block"
-        onClick={() => void sync()}
-        disabled={busy || !configured}
+        onClick={() => void run(false)}
+        disabled={!!busy || !configured}
       >
-        {busy ? 'Сұрау орындалуда...' : (
+        {busy === 'sync' ? 'Сұрау орындалуда...' : (
           <>
             <span aria-hidden>🔄</span>
             <span>Қазір синхрондау</span>
@@ -78,9 +86,25 @@ export function GoszakupSync({ onSynced }: { onSynced?: () => void }) {
         )}
       </button>
 
+      <button
+        className="btn btn--ghost btn--block"
+        onClick={() => void run(true)}
+        disabled={!!busy || !configured}
+        style={{ fontSize: 13 }}
+      >
+        {busy === 'bulk' ? 'Импорт орындалуда...' : (
+          <>
+            <span aria-hidden>📥</span>
+            <span>Бастапқы импорт (хабарламасыз)</span>
+          </>
+        )}
+      </button>
+
       {last && (
-        <div className={`alert ${last.ok ? 'alert--success' : 'alert--error'}`}
-             style={{ fontSize: 12.5 }}>
+        <div
+          className={`alert ${last.ok ? 'alert--success' : 'alert--error'}`}
+          style={{ fontSize: 12.5 }}
+        >
           {last.ok ? (
             <>
               <span>✓</span>
@@ -88,6 +112,7 @@ export function GoszakupSync({ onSynced }: { onSynced?: () => void }) {
                 Алынды: <strong>{last.fetched ?? 0}</strong>,
                 жаңа: <strong>{last.created ?? 0}</strong>,
                 бұрыннан бар: <strong>{last.skipped ?? 0}</strong>
+                {last.silent && <> · хабарламасыз</>}
               </span>
             </>
           ) : (
