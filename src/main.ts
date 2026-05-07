@@ -3,6 +3,16 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
+// Global BigInt → string serializer.
+// `User.telegramId` Prisma-да `BigInt`. JSON.stringify default-та BigInt-ті
+// сериалай алмайды (TypeError шығарады) → API 500 қайтарады. Мұнда жаhандық
+// patch жасаймыз — әрқашан string қылып шығарады.
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  interface BigInt { toJSON(): string }
+}
+(BigInt.prototype as any).toJSON = function () { return this.toString(); };
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
