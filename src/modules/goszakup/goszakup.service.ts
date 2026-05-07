@@ -43,11 +43,16 @@ interface ContractNode {
   /** Сатушының (біздің) мекен-жайы — қолданбаймыз */
   supplierLegalAddress: string | null;
   finYear: number | null;
+  /** Орындау актілері. statusId=15 ("Утвержден") болса контракт бітіп қойған. */
+  Acts: Array<{ statusId: number }> | null;
   Customer: {
     nameRu: string | null;
     fullNameRu: string | null;
   } | null;
 }
+
+/** Утвержденная акт статус коды — контракт нақты орындалған деп есептейміз */
+const ACT_APPROVED_STATUS = 15;
 
 const CONTRACT_QUERY = `
   query WonContracts($filter: ContractFiltersInput, $limit: Int, $after: Int) {
@@ -69,6 +74,7 @@ const CONTRACT_QUERY = `
       customerLegalAddress
       supplierLegalAddress
       finYear
+      Acts { statusId }
       Customer { nameRu fullNameRu }
     }
   }
@@ -169,20 +175,31 @@ export class GoszakupService {
       after = Number(nextLastId);
     }
 
-    // Post-process: нақты орындалу күні бар немесе мерзімі өткен контракттарды шығарамыз
+    // Post-process — контракт "Действует" болғанымен орындалғандарды шығарамыз:
+    //   1) Acts ішінде statusId=15 ("Утвержден") болса → нақты бітіп қойған
+    //   2) faktExecDate белгілі болса → орындалған
+    //   3) planExecDate бүгіннен бұрын → мерзімі өткен (қарамаймыз)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    let droppedDoneByAct = 0;
     const active = all.filter((c) => {
-      if (c.faktExecDate) return false; // фактически исполнен
+      // 1) Утвержден актілері бар ма?
+      if (c.Acts && c.Acts.some((a) => a.statusId === ACT_APPROVED_STATUS)) {
+        droppedDoneByAct += 1;
+        return false;
+      }
+      // 2) Фактически исполнен
+      if (c.faktExecDate) return false;
+      // 3) Мерзімі өткен
       const deadline = c.planExecDate || c.contractEndDate || c.ecEndDate;
       if (!deadline) return true;
       const d = new Date(deadline.replace(' ', 'T'));
-      return d.getTime() >= today.getTime(); // мерзімі әлі келмеген
+      return d.getTime() >= today.getTime();
     });
 
     this.logger.log(
       `Goszakup: барлығы ${all.length} → активті ${active.length} ` +
-        `(орындалған/мерзімі өткен ${all.length - active.length} өткізілді)`,
+        `(${droppedDoneByAct} утвержден актімен бітіп қойған, ${all.length - active.length - droppedDoneByAct} мерзімі өткен/орындалған)`,
     );
     return active;
   }
