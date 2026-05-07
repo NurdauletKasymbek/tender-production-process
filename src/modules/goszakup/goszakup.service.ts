@@ -38,6 +38,9 @@ interface ContractNode {
   trdBuyNameRu: string | null;
   descriptionRu: string | null;
   refCurrencyCode: string | null;
+  /** Тапсырыс берушінің заңды мекен-жайы — бұл біздің "deliveryAddress" */
+  customerLegalAddress: string | null;
+  /** Сатушының (біздің) мекен-жайы — қолданбаймыз */
   supplierLegalAddress: string | null;
   finYear: number | null;
   Customer: {
@@ -63,6 +66,7 @@ const CONTRACT_QUERY = `
       trdBuyNameRu
       descriptionRu
       refCurrencyCode
+      customerLegalAddress
       supplierLegalAddress
       finYear
       Customer { nameRu fullNameRu }
@@ -183,11 +187,26 @@ export class GoszakupService {
     return active;
   }
 
-  /** Келісімшартты тапсырысқа айналдыру (бар болса өткізіп жібереді) */
+  /**
+   * Келісімшартты тапсырысқа айналдыру.
+   * Бар болса — деректерін жаңартады (мысалы, мекен-жай қате болса) және `false` қайтарады.
+   * Жоқ болса — жаңасын жасап `true` қайтарады.
+   */
   private async processContract(c: ContractNode, opts: { silent?: boolean } = {}): Promise<boolean> {
     const goszakupId = String(c.id);
     const exists = await this.prisma.order.findUnique({ where: { goszakupId } });
-    if (exists) return false;
+    if (exists) {
+      // Дұрыс мекен-жай (тапсырыс берушінікі) сақталмаған болса — түзетеміз.
+      // Бұл ескі қате (supplierLegalAddress) орнына дұрыс мәнді қояды.
+      const correctAddress = c.customerLegalAddress || null;
+      if (correctAddress && exists.deliveryAddress !== correctAddress) {
+        await this.prisma.order.update({
+          where: { id: exists.id },
+          data: { deliveryAddress: correctAddress },
+        });
+      }
+      return false;
+    }
 
     const productName =
       (c.trdBuyNameRu && c.trdBuyNameRu.trim()) ||
@@ -218,7 +237,8 @@ export class GoszakupService {
         currency: c.refCurrencyCode || 'KZT',
         deadline,
         contractDate,
-        deliveryAddress: c.supplierLegalAddress || null,
+        // Тапсырыс берушінің мекен-жайы (біздікі емес!)
+        deliveryAddress: c.customerLegalAddress || null,
         status: OrderStatus.NEW_TENDER,
       },
     });
