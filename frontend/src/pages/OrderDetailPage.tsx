@@ -8,11 +8,23 @@ import { TaskCard } from '../components/TaskCard';
 import { FileGallery } from '../components/FileGallery';
 import { ordersApi, productionApi } from '../api/endpoints';
 import { useAuth } from '../hooks/useAuth';
-import type { FileType, FulfillmentType, Order, OrderStatus } from '../types';
+import type { FileType, FulfillmentType, Order, OrderStatus, UserRole } from '../types';
 import {
   formatDate, formatDateTime, formatMoney, FULFILLMENT_ICON, FULFILLMENT_LABEL,
-  NEXT_STATUS_BY_CURRENT, nextStepLabel, ROLE_LABEL, STATUS_LABEL,
+  NEXT_STATUS_BY_CURRENT, nextStepLabel, ROLE_ICON, ROLE_LABEL, STATUS_LABEL,
 } from '../utils/labels';
+
+/** Әр кезеңді ауыстыруға жауапты НЕГІЗГІ рөл (ADMIN-нен бөлек) */
+const STAGE_PRIMARY_ROLE: Partial<Record<OrderStatus, UserRole>> = {
+  NEW_TENDER: 'TENDER_DEPARTMENT',
+  REVIEW: 'TENDER_DEPARTMENT',
+  CONFIRMATION: 'DIRECTOR',
+  PRODUCTION: 'PRODUCTION_HEAD',
+  PACKAGING: 'PACKAGING',
+  LOADING: 'LOADING',
+  LOGISTICS: 'LOGISTICS',
+  DELIVERY: 'LOGISTICS',
+};
 import { hapticImpact, hapticNotify, setBackButton, showConfirm } from '../utils/telegram';
 
 const ROLE_CAN_ADVANCE: Record<OrderStatus, string[]> = {
@@ -51,7 +63,7 @@ const ROLE_CAN_REJECT: Record<OrderStatus, string[]> = {
 export function OrderDetailPage() {
   const { id = '' } = useParams<{ id: string }>();
   const nav = useNavigate();
-  const { user, effectiveRole } = useAuth();
+  const { user, effectiveRole, setRoleOverride } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -191,6 +203,32 @@ export function OrderDetailPage() {
         suggestedType={FILE_TYPE_BY_STAGE[order.status] || 'OTHER'}
         canUpload={effectiveRole !== 'WORKSHOP_WORKER' || order.status === 'PRODUCTION'}
       />
+
+      {/* ADMIN басқа рөл болып отыр да, ағымдағы кезеңді сол рөл ауыстыра алмайды —
+          бір батырмамен дұрыс рөлге ауыстыруды ұсынамыз. */}
+      {!canAdvance && !canReject && user.role === 'ADMIN' && order.status !== 'CLOSED' && order.status !== 'REJECTED' && (() => {
+        const required = STAGE_PRIMARY_ROLE[order.status];
+        if (!required || required === effectiveRole) return null;
+        return (
+          <div className="card" style={{ borderColor: 'var(--brand-300)' }}>
+            <div className="muted" style={{ fontSize: 13 }}>
+              <strong>"{STATUS_LABEL[order.status]}"</strong> кезеңін ауыстыру үшін
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
+              <span aria-hidden style={{ fontSize: 20 }}>{ROLE_ICON[required]}</span>
+              <span>{ROLE_LABEL[required]}</span>
+              <span className="muted" style={{ fontSize: 12, fontWeight: 400 }}>рөлі керек</span>
+            </div>
+            <button
+              className="btn btn--soft btn--block"
+              onClick={() => setRoleOverride(required)}
+            >
+              <span aria-hidden>🧪</span>
+              <span>{ROLE_LABEL[required]} ретінде басқару</span>
+            </button>
+          </div>
+        );
+      })()}
 
       {(canAdvance || canReject) && (
         <div className="actions">
