@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { FileType, UserRole } from '@prisma/client';
+import 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../../common/prisma/prisma.service';

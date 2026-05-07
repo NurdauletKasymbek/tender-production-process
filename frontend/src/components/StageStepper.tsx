@@ -7,6 +7,7 @@ const PIPELINE: OrderStatus[] = [
   'CONFIRMATION',
   'PRODUCTION',
   'PACKAGING',
+  'STORAGE',
   'LOADING',
   'LOGISTICS',
   'DELIVERY',

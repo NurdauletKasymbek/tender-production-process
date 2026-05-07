@@ -6,6 +6,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { StageStepper } from '../components/StageStepper';
 import { TaskCard } from '../components/TaskCard';
 import { FileGallery } from '../components/FileGallery';
+import { TransportInfoForm } from '../components/TransportInfoForm';
 import { ordersApi, productionApi } from '../api/endpoints';
 import { useAuth } from '../hooks/useAuth';
 import type { FileType, FulfillmentType, Order, OrderStatus, UserRole } from '../types';
@@ -21,6 +22,7 @@ const STAGE_PRIMARY_ROLE: Partial<Record<OrderStatus, UserRole>> = {
   CONFIRMATION: 'DIRECTOR',
   PRODUCTION: 'PRODUCTION_HEAD',
   PACKAGING: 'PACKAGING',
+  STORAGE: 'LOADING', // STORAGE-ті LOADING рөлі басқарады
   LOADING: 'LOADING',
   LOGISTICS: 'LOGISTICS',
   DELIVERY: 'LOGISTICS',
@@ -33,7 +35,8 @@ const ROLE_CAN_ADVANCE: Record<OrderStatus, string[]> = {
   CONFIRMATION: ['DIRECTOR', 'ADMIN'],
   PRODUCTION: ['PRODUCTION_HEAD', 'ADMIN'],
   PACKAGING: ['PACKAGING', 'ADMIN'],
-  LOADING: ['LOADING', 'ADMIN'],
+  STORAGE: ['LOADING', 'ADMIN'],
+  LOADING: ['LOADING', 'LOGISTICS', 'ADMIN'],
   LOGISTICS: ['LOGISTICS', 'ADMIN'],
   DELIVERY: ['LOGISTICS', 'DIRECTOR', 'ADMIN'],
   CLOSED: [],
@@ -46,6 +49,7 @@ const FILE_TYPE_BY_STAGE: Partial<Record<OrderStatus, FileType>> = {
   CONFIRMATION: 'TECHNICAL_SPEC',
   PRODUCTION: 'PRODUCTION_PHOTO',
   PACKAGING: 'PACKAGING_PHOTO',
+  STORAGE: 'PACKAGING_PHOTO',
   LOADING: 'LOADING_PHOTO',
   LOGISTICS: 'LOADING_PHOTO',
   DELIVERY: 'DELIVERY_PHOTO',
@@ -56,7 +60,7 @@ const ROLE_CAN_REJECT: Record<OrderStatus, string[]> = {
   NEW_TENDER: ['TENDER_DEPARTMENT', 'ADMIN'],
   REVIEW: ['TENDER_DEPARTMENT', 'ADMIN'],
   CONFIRMATION: ['DIRECTOR', 'ADMIN'],
-  PRODUCTION: [], PACKAGING: [], LOADING: [],
+  PRODUCTION: [], PACKAGING: [], STORAGE: [], LOADING: [],
   LOGISTICS: [], DELIVERY: [], CLOSED: [], REJECTED: [],
 };
 
@@ -69,6 +73,7 @@ export function OrderDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
+  const [showTransportForm, setShowTransportForm] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -91,7 +96,9 @@ export function OrderDetailPage() {
   const next = NEXT_STATUS_BY_CURRENT[order.status];
   const canAdvance = next && ROLE_CAN_ADVANCE[order.status]?.includes(effectiveRole);
   const canReject = ROLE_CAN_REJECT[order.status]?.includes(effectiveRole);
-  const canAddTasks = order.status === 'PRODUCTION' && (effectiveRole === 'PRODUCTION_HEAD' || effectiveRole === 'ADMIN');
+  // ProductionTask UI алынып тасталды — Цех басшысы Mini App-сыз бөледі.
+  // Mini App тек статус + фото/видео отчет.
+  const canAddTasks = false;
   const fileCount = order.files?.length ?? 0;
   const hasTechSpec = !!order.files?.some(
     (f) => f.fileType === 'TECHNICAL_SPEC' || f.fileType === 'CONTRACT',
@@ -102,23 +109,29 @@ export function OrderDetailPage() {
     order.status === 'CONFIRMATION' && (effectiveRole === 'DIRECTOR' || effectiveRole === 'ADMIN');
   const willGoToProduction = order.status === 'CONFIRMATION' && next === 'PRODUCTION';
 
-  const advanceTo = async (target: OrderStatus) => {
+  const advanceTo = async (target: OrderStatus, extraBody: Record<string, unknown> = {}) => {
+    // LOADING → LOGISTICS — көлік ақпараты міндетті, форма ашамыз
+    if (order.status === 'LOADING' && target === 'LOGISTICS' && !extraBody.transportProvider) {
+      setShowTransportForm(true);
+      return;
+    }
+
     if (target === 'PRODUCTION' && !hasTechSpec) {
       const ok = await showConfirm(
         'Тапсырыс цех басшысына барады, бірақ техникалық тапсырма (PDF/фото) тіркелмеген. ' +
           'Цех мамандарына ақпарат жетпеуі мүмкін. Сонда да жалғастырамыз ба?',
       );
       if (!ok) return;
-    } else {
+    } else if (!extraBody.transportProvider) {
       const ok = await showConfirm(`Тапсырыс күйі "${STATUS_LABEL[target]}" болады. Жалғастырамыз ба?`);
       if (!ok) return;
     }
     setBusy(true);
     try {
       hapticImpact('medium');
-      // CONFIRMATION → PACKAGING болса fulfillmentType автоматты STOCK болады (backend-те)
-      await ordersApi.changeStatus(order.id, target);
+      await ordersApi.changeStatus(order.id, target, extraBody);
       hapticNotify('success');
+      setShowTransportForm(false);
       await load();
     } catch (e: any) {
       hapticNotify('error');
@@ -127,6 +140,27 @@ export function OrderDetailPage() {
   };
 
   const advance = () => next && advanceTo(next);
+
+  const submitTransport = async (transport: {
+    transportProvider: string;
+    driverName: string;
+    driverPhone: string;
+    vehicleType: string;
+    vehiclePlate: string;
+    expectedArrival: string;
+  }) => {
+    await advanceTo('LOGISTICS', {
+      transportProvider: transport.transportProvider,
+      driverName: transport.driverName,
+      driverPhone: transport.driverPhone,
+      vehicleType: transport.vehicleType,
+      vehiclePlate: transport.vehiclePlate,
+      expectedArrival: transport.expectedArrival
+        ? new Date(transport.expectedArrival).toISOString()
+        : undefined,
+      departedAt: new Date().toISOString(),
+    });
+  };
 
   const reject = async () => {
     const ok = await showConfirm('Тапсырысты қабылдамаймыз ба? Бұл әрекетті кері қайтаруға болмайды.');
@@ -182,6 +216,22 @@ export function OrderDetailPage() {
         )}
       </div>
 
+      {/* Көлік ақпараты — толтырылған болса көрсетеміз (Logistics + кейінгі кезеңдерде) */}
+      {(order.transportProvider || order.driverName || order.vehiclePlate) && (
+        <>
+          <h3 className="section-title">🚛 Көлік ақпараты</h3>
+          <div className="card">
+            {order.transportProvider && <Row label="Тасымалдаушы" value={order.transportProvider} />}
+            {order.driverName && <Row label="Жүргізуші" value={order.driverName} />}
+            {order.driverPhone && <Row label="Телефон" value={order.driverPhone} />}
+            {order.vehicleType && <Row label="Көлік түрі" value={order.vehicleType} />}
+            {order.vehiclePlate && <Row label="Мемнөмір" value={order.vehiclePlate} />}
+            {order.departedAt && <Row label="Жолға шықты" value={formatDateTime(order.departedAt)} />}
+            {order.expectedArrival && <Row label="Болжамды жеткізу" value={formatDateTime(order.expectedArrival)} />}
+          </div>
+        </>
+      )}
+
       {/* Файлдар секциясы — action батырмалардан бұрын. Тендер бөлімі/Директор
           цех басшысына жібермес бұрын техникалық PDF тіркей алады. */}
       <div className="section-title-row">
@@ -230,7 +280,23 @@ export function OrderDetailPage() {
         );
       })()}
 
-      {(canAdvance || canReject) && (
+      {/* LOADING → LOGISTICS — Логист көлік ақпаратын толтырады */}
+      {showTransportForm && (
+        <TransportInfoForm
+          initial={{
+            transportProvider: order.transportProvider || '',
+            driverName: order.driverName || '',
+            driverPhone: order.driverPhone || '',
+            vehicleType: order.vehicleType || '',
+            vehiclePlate: order.vehiclePlate || '',
+          }}
+          onSubmit={submitTransport}
+          onCancel={() => setShowTransportForm(false)}
+          busy={busy}
+        />
+      )}
+
+      {(canAdvance || canReject) && !showTransportForm && (
         <div className="actions">
           {/* CONFIRMATION: Директор 2 нұсқа таңдайды */}
           {isDirectorConfirmation ? (
@@ -245,14 +311,15 @@ export function OrderDetailPage() {
               </button>
               <button
                 className="btn btn--success btn--lg"
-                onClick={() => void advanceTo('PACKAGING')}
+                onClick={() => void advanceTo('STORAGE')}
                 disabled={busy}
               >
                 <span aria-hidden>📦</span>
-                <span>Складтан алу (қаптауға)</span>
+                <span>Складтан алу (қойма → тиеу)</span>
               </button>
               <div className="muted" style={{ fontSize: 12, textAlign: 'center', marginTop: 4 }}>
-                Дайын өнім бар болса — "Складтан алу". Жоқ болса — "Өндіріске жіберу".
+                Дайын өнім бар болса — "Складтан алу" (цех + қаптау аттап өтіледі).
+                Жоқ болса — "Өндіріске жіберу".
               </div>
             </>
           ) : (

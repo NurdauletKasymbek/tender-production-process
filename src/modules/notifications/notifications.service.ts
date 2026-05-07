@@ -63,6 +63,30 @@ export class NotificationsService {
     );
   }
 
+  /**
+   * Бақылау тобына (ADMIN + DIRECTOR) хабарлама.
+   * Әр статус ауысуда қолданылады — олар бүкіл процесті көріп отыруы керек.
+   * `excludeUserId` — әрекет жасаған қолданушы (өзіне қосалқы хабар жібермейміз).
+   */
+  async notifyControl(
+    type: NotificationType | keyof typeof NotificationType,
+    title: string,
+    message: string,
+    orderId?: string,
+    excludeUserId?: string,
+  ) {
+    const users = await this.prisma.user.findMany({
+      where: {
+        role: { in: [UserRole.ADMIN, UserRole.DIRECTOR] },
+        isActive: true,
+        ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+      },
+    });
+    return Promise.all(
+      users.map((u) => this.notifyUser(u.id, type, title, message, orderId)),
+    );
+  }
+
   async getUserNotifications(userId: string, unreadOnly = false) {
     return this.prisma.notification.findMany({
       where: { userId, ...(unreadOnly ? { isRead: false } : {}) },

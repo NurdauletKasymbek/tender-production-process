@@ -30,9 +30,18 @@ export class ChangeStatusDto {
   @IsOptional() @IsString() responsibleId?: string;
   /**
    * Тек CONFIRMATION-дан ауысқанда мағыналы:
-   *   PACKAGING-ке көшсе  → STOCK ретінде белгіленеді (склад)
-   *   PRODUCTION-ге көшсе → PRODUCTION ретінде (өндіріс)
-   * Қажет болса қолмен override үшін қолданылады.
+   *   STORAGE-қа көшсе  → STOCK (склад — дайын тауар)
+   *   PRODUCTION-ге көшсе → PRODUCTION (цех)
    */
   @IsOptional() @IsEnum(FulfillmentType) fulfillmentType?: FulfillmentType;
+
+  // Көлік ақпараты — LOADING → LOGISTICS өткенде логист толтырады (міндетті).
+  // Қызмет деңгейінде LOGISTICS-ке өту үшін бұл өрістер тексеріледі.
+  @IsOptional() @IsString() transportProvider?: string;
+  @IsOptional() @IsString() driverName?: string;
+  @IsOptional() @IsString() driverPhone?: string;
+  @IsOptional() @IsString() vehicleType?: string;
+  @IsOptional() @IsString() vehiclePlate?: string;
+  @IsOptional() @IsDateString() departedAt?: string;
+  @IsOptional() @IsDateString() expectedArrival?: string;
 }

@@ -20,13 +20,24 @@ const HOME_LABEL: Record<UserRole, string> = {
   LOGISTICS: 'Жеткізу',
 };
 
+/**
+ * Тек ADMIN мен DIRECTOR толық бақылау Mini App-ын көреді (4 таб).
+ * Қалған рөлдер шектеулі көрініс — тек өздеріне қатысты бөлімдер (3 таб).
+ */
+const FULL_ACCESS_ROLES: UserRole[] = ['ADMIN', 'DIRECTOR'];
+
 export function BottomNav() {
   const { user, effectiveRole } = useAuth();
   if (!user || !effectiveRole) return null;
 
+  const hasFullAccess = FULL_ACCESS_ROLES.includes(effectiveRole);
+
   const items: NavItem[] = [
     { to: '/', label: HOME_LABEL[effectiveRole], icon: <HomeIcon /> },
-    { to: '/orders', label: 'Тапсырыстар', icon: <ListIcon /> },
+    // Барлық тапсырыстар тізімі — тек ADMIN/DIRECTOR-ге
+    ...(hasFullAccess
+      ? [{ to: '/orders', label: 'Тапсырыстар', icon: <ListIcon /> }]
+      : []),
     { to: '/notifications', label: 'Хабарлама', icon: <BellIcon /> },
     { to: '/profile', label: 'Профиль', icon: <UserIcon /> },
   ];

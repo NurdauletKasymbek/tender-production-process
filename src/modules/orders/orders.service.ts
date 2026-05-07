@@ -89,6 +89,17 @@ export class OrdersService {
     const check = canTransition(order.status, nextStatus, user.role);
     if (!check.ok) throw new BadRequestException(check.reason);
 
+    // LOADING → LOGISTICS өту үшін көлік ақпараты міндетті
+    if (order.status === OrderStatus.LOADING && nextStatus === OrderStatus.LOGISTICS) {
+      const required = ['transportProvider', 'driverName', 'driverPhone', 'vehiclePlate'] as const;
+      const missing = required.filter((k) => !dto[k] && !(order as any)[k]);
+      if (missing.length > 0) {
+        throw new BadRequestException(
+          'Көлік ақпараты толық емес. Толтырыңыз: ' + missing.join(', '),
+        );
+      }
+    }
+
     // Жаңа жауапты — DTO-да көрсетілген немесе автоматты түрде сол рөлдегі бірінші белсенді
     let newResponsibleId = dto.responsibleId ?? null;
     if (!newResponsibleId) {
@@ -103,14 +114,24 @@ export class OrdersService {
     }
 
     // CONFIRMATION-дан өткенде орындау түрін бекітеміз:
-    //   → PACKAGING болса = STOCK (склад)
+    //   → STORAGE болса = STOCK (склад — дайын тауар)
     //   → PRODUCTION болса = PRODUCTION (цех, default)
     // dto.fulfillmentType қолмен берілсе, ол басымдыққа ие.
     let fulfillmentType: FulfillmentType | undefined = dto.fulfillmentType;
     if (!fulfillmentType && order.status === OrderStatus.CONFIRMATION) {
-      if (nextStatus === OrderStatus.PACKAGING) fulfillmentType = FulfillmentType.STOCK;
+      if (nextStatus === OrderStatus.STORAGE) fulfillmentType = FulfillmentType.STOCK;
       else if (nextStatus === OrderStatus.PRODUCTION) fulfillmentType = FulfillmentType.PRODUCTION;
     }
+
+    // Көлік ақпараты — берілсе сақтаймыз (LOADING → LOGISTICS өту кезінде)
+    const transportData: Record<string, string | Date> = {};
+    if (dto.transportProvider !== undefined) transportData.transportProvider = dto.transportProvider;
+    if (dto.driverName !== undefined) transportData.driverName = dto.driverName;
+    if (dto.driverPhone !== undefined) transportData.driverPhone = dto.driverPhone;
+    if (dto.vehicleType !== undefined) transportData.vehicleType = dto.vehicleType;
+    if (dto.vehiclePlate !== undefined) transportData.vehiclePlate = dto.vehiclePlate;
+    if (dto.departedAt) transportData.departedAt = new Date(dto.departedAt);
+    if (dto.expectedArrival) transportData.expectedArrival = new Date(dto.expectedArrival);
 
     const [updated] = await this.prisma.$transaction([
       this.prisma.order.update({
@@ -119,12 +140,15 @@ export class OrdersService {
           status: nextStatus,
           responsibleId: newResponsibleId,
           startedAt: order.startedAt ?? (
-            nextStatus === OrderStatus.PRODUCTION || nextStatus === OrderStatus.PACKAGING
+            nextStatus === OrderStatus.PRODUCTION
+              || nextStatus === OrderStatus.PACKAGING
+              || nextStatus === OrderStatus.STORAGE
               ? new Date()
               : null
           ),
           completedAt: nextStatus === OrderStatus.CLOSED ? new Date() : null,
           ...(fulfillmentType ? { fulfillmentType } : {}),
+          ...transportData,
         },
       }),
       this.prisma.orderStatusHistory.create({
@@ -138,13 +162,52 @@ export class OrdersService {
       }),
     ]);
 
-    // Хабарлама
+    // Хабарлама — жауаптыға
     if (newResponsibleId) {
       await this.notifications.notifyUser(
         newResponsibleId,
         'STATUS_CHANGE',
         'Жаңа тапсырыс сізге берілді',
-        `Тапсырыс №${order.tenderNumber} — кезең: ${nextStatus}`,
+        `Тапсырыс №${order.tenderNumber} — кезең: ${nextStatus}\n` +
+          `Өнім: ${order.productName}\n` +
+          (dto.comment ? `\nЕскертпе: ${dto.comment}` : ''),
+        orderId,
+      );
+    }
+
+    // Бақылау тобына (ADMIN + DIRECTOR) — әр кезең ауысуда
+    await this.notifications.notifyControl(
+      'STATUS_CHANGE',
+      `📊 Кезең ауысты: ${order.tenderNumber}`,
+      `«${order.productName}»\n` +
+        `${order.status} → ${nextStatus}\n` +
+        (dto.comment ? `\nЕскертпе: ${dto.comment}` : ''),
+      orderId,
+      user.id, // өзіне қайта жібермейміз
+    );
+
+    // Арнайы — Логистика тапсырысты жүктеп жолға шығарған сәт
+    // (LOGISTICS → DELIVERY): Директорға айқын "сәтті жүктелді" хабарламасы
+    if (order.status === OrderStatus.LOGISTICS && nextStatus === OrderStatus.DELIVERY) {
+      const transportLine = (() => {
+        const parts: string[] = [];
+        const o = updated as any; // updated includes new fields
+        if (o.transportProvider) parts.push(`Тасымалдаушы: ${o.transportProvider}`);
+        if (o.vehicleType || o.vehiclePlate) {
+          parts.push(`Көлік: ${[o.vehicleType, o.vehiclePlate].filter(Boolean).join(', ')}`);
+        }
+        if (o.driverName || o.driverPhone) {
+          parts.push(`Жүргізуші: ${[o.driverName, o.driverPhone].filter(Boolean).join(' · ')}`);
+        }
+        return parts.length ? '\n\n' + parts.join('\n') : '';
+      })();
+
+      await this.notifications.notifyControl(
+        'COMPLETED',
+        `✅ «${order.tenderNumber}» сәтті жүктелді`,
+        `Тапсырыс «${order.productName}» жүктелді және клиентке жолға шықты.\n` +
+          `Тапсырыс беруші: ${order.customerName}` +
+          transportLine,
         orderId,
       );
     }

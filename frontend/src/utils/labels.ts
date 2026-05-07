@@ -38,6 +38,7 @@ export const STATUS_LABEL: Record<OrderStatus, string> = {
   CONFIRMATION: 'Растау',
   PRODUCTION: 'Өндіріс',
   PACKAGING: 'Қаптау',
+  STORAGE: 'Қойма',
   LOADING: 'Тиеу',
   LOGISTICS: 'Жолда',
   DELIVERY: 'Жеткізу',
@@ -51,6 +52,7 @@ export const STATUS_COLOR: Record<OrderStatus, string> = {
   CONFIRMATION: '#7d5cff',
   PRODUCTION: '#ff9f0a',
   PACKAGING: '#ffb340',
+  STORAGE: '#a78bfa',
   LOADING: '#cc8e3a',
   LOGISTICS: '#34c759',
   DELIVERY: '#30b94d',
@@ -95,7 +97,8 @@ export const NEXT_STATUS_BY_CURRENT: Partial<Record<OrderStatus, OrderStatus>> =
   REVIEW: 'CONFIRMATION',
   CONFIRMATION: 'PRODUCTION',
   PRODUCTION: 'PACKAGING',
-  PACKAGING: 'LOADING',
+  PACKAGING: 'STORAGE',
+  STORAGE: 'LOADING',
   LOADING: 'LOGISTICS',
   LOGISTICS: 'DELIVERY',
   DELIVERY: 'CLOSED',
@@ -109,6 +112,7 @@ export function nextStepLabel(status: OrderStatus): string | null {
     case 'CONFIRMATION': return 'Растауға жіберу';
     case 'PRODUCTION': return 'Өндіріске бастау';
     case 'PACKAGING': return 'Қаптауға беру';
+    case 'STORAGE': return 'Қоймаға қою';
     case 'LOADING': return 'Тиеуге беру';
     case 'LOGISTICS': return 'Жолға шығару';
     case 'DELIVERY': return 'Жеткізілді деп белгілеу';

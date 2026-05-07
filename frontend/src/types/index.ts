@@ -14,6 +14,7 @@ export type OrderStatus =
   | 'CONFIRMATION'
   | 'PRODUCTION'
   | 'PACKAGING'
+  | 'STORAGE'
   | 'LOADING'
   | 'LOGISTICS'
   | 'DELIVERY'
@@ -53,6 +54,14 @@ export interface Order {
   completedAt?: string | null;
   deliveryAddress?: string | null;
   deliveryContact?: string | null;
+  // Көлік ақпараты (логист толтырады LOADING → LOGISTICS өткенде)
+  transportProvider?: string | null;
+  driverName?: string | null;
+  driverPhone?: string | null;
+  vehicleType?: string | null;
+  vehiclePlate?: string | null;
+  departedAt?: string | null;
+  expectedArrival?: string | null;
   status: OrderStatus;
   priority: number;
   fulfillmentType: FulfillmentType;

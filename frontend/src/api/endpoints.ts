@@ -48,7 +48,19 @@ export const ordersApi = {
   changeStatus: (
     id: string,
     next: OrderStatus,
-    body: { comment?: string; responsibleId?: string; fulfillmentType?: FulfillmentType } = {},
+    body: {
+      comment?: string;
+      responsibleId?: string;
+      fulfillmentType?: FulfillmentType;
+      // Көлік ақпараты — LOADING → LOGISTICS өту үшін міндетті
+      transportProvider?: string;
+      driverName?: string;
+      driverPhone?: string;
+      vehicleType?: string;
+      vehiclePlate?: string;
+      departedAt?: string;
+      expectedArrival?: string;
+    } = {},
   ) => api.patch<Order>(`/orders/${id}/status/${next}`, body).then((r) => r.data),
 
   create: (body: {

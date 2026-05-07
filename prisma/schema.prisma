@@ -30,6 +30,7 @@ enum OrderStatus {
   CONFIRMATION   // Растау (басшы)
   PRODUCTION     // Өндіріс
   PACKAGING      // Қаптау
+  STORAGE        // Қойма (қаптаудан кейін немесе STOCK тапсырыстарының бастапқы орны)
   LOADING        // Тиеу
   LOGISTICS      // Логистика (жолда)
   DELIVERY       // Жеткізу
@@ -47,8 +48,8 @@ enum TaskStatus {
 
 // ============== ОРЫНДАУ ТҮРІ (склад / өндіріс) ==============
 // Тапсырыс директордың растауында осы өріс белгіленеді:
-//   PRODUCTION — цехта жасалады (CONFIRMATION → PRODUCTION → PACKAGING)
-//   STOCK      — дайын өнім, цехсыз (CONFIRMATION → PACKAGING)
+//   PRODUCTION — цехта жасалады (CONFIRMATION → PRODUCTION → PACKAGING → STORAGE → LOADING ...)
+//   STOCK      — дайын өнім, цехсыз (CONFIRMATION → STORAGE → LOADING ...)
 enum FulfillmentType {
   PRODUCTION
   STOCK
@@ -105,18 +106,27 @@ model Order {
   // Жеткізу
   deliveryAddress String?
   deliveryContact String?
-  
+
+  // Көлік ақпараты (LOADING → LOGISTICS өткенде логист толтырады)
+  transportProvider String?  // "Самосвал-Транс LLP" немесе жеке тасымалдаушы
+  driverName        String?  // "Иванов Иван Иванович"
+  driverPhone       String?  // "+7 700 123 4567"
+  vehicleType       String?  // "Газель", "Камаз", т.б.
+  vehiclePlate      String?  // "123ABC01"
+  departedAt        DateTime?
+  expectedArrival   DateTime?
+
   // Күй
   status          OrderStatus @default(NEW_TENDER)
   priority        Int         @default(0)  // 0-қалыпты, 1-жоғары, 2-шұғыл
 
   // Орындау түрі — Директор CONFIRMATION-да таңдайды
   fulfillmentType FulfillmentType @default(PRODUCTION)
-  
+
   // Жауапты адам (ағымдағы кезеңде)
   responsibleId   String?
   responsible     User?       @relation("OrderResponsible", fields: [responsibleId], references: [id])
-  
+
   notes           String?
 
   createdAt       DateTime    @default(now())
