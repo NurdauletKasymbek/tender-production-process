@@ -6,7 +6,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { OrderStatus, UserRole } from '@prisma/client';
 import type { Response } from 'express';
 import { OrdersService } from './orders.service';
-import { CreateOrderDto, ChangeStatusDto } from './dto/order.dto';
+import { CreateOrderDto, ChangeStatusDto, LinkStockDto } from './dto/order.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 
@@ -65,6 +65,13 @@ export class OrdersController {
   @ApiOperation({ summary: 'Тапсырыс мәліметі' })
   findOne(@Param('id') id: string) {
     return this.orders.findOne(id);
+  }
+
+  @Patch(':id/stock-link')
+  @Roles(UserRole.ADMIN, UserRole.LOADING, UserRole.DIRECTOR)
+  @ApiOperation({ summary: 'Тапсырысқа склад бірлігін байлау/өзгерту' })
+  linkStock(@Param('id') id: string, @Body() dto: LinkStockDto) {
+    return this.orders.linkStock(id, dto);
   }
 
   @Patch(':id/status/:next')

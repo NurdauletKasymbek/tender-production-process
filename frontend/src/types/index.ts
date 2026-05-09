@@ -73,6 +73,18 @@ export interface Order {
   statusHistory?: OrderStatusHistoryItem[];
   productionTasks?: ProductionTask[];
   files?: OrderFile[];
+
+  // STOCK fulfillment байланысы (LOADING-те автоматты шегеру үшін)
+  stockItemId?: string | null;
+  stockQuantity?: string | number | null;
+  stockDeductedAt?: string | null;
+  stockItem?: {
+    id: string;
+    name: string;
+    unit: string;
+    quantity: string | number;
+    sku?: string | null;
+  } | null;
 }
 
 export interface OrderStatusHistoryItem {

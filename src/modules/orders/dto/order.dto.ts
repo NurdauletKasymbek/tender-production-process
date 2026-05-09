@@ -45,3 +45,13 @@ export class ChangeStatusDto {
   @IsOptional() @IsDateString() departedAt?: string;
   @IsOptional() @IsDateString() expectedArrival?: string;
 }
+
+/**
+ * STOCK fulfillment-ге склад бірлігін байлау.
+ * `stockItemId: null` — байланысты алу.
+ * `stockQuantity` — қаншасын шегеру (LOADING → LOGISTICS өткенде).
+ */
+export class LinkStockDto {
+  @IsOptional() @IsString() stockItemId?: string | null;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) stockQuantity?: number;
+}

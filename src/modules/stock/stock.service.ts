@@ -12,6 +12,31 @@ import {
 } from './dto/stock.dto';
 
 /**
+ * "a;b;""c с ;""" → ["a", "b", "c с ;"]
+ * Қарапайым CSV жолын бөлу: тырнақшалардағы ; бөлгіш емес,
+ * ал екі тырнақша ("") тырнақша литералы ретінде есептеледі.
+ */
+function parseCsvLine(line: string, sep: string): string[] {
+  const out: string[] = [];
+  let i = 0;
+  let cur = '';
+  let inQuote = false;
+  while (i < line.length) {
+    const ch = line[i];
+    if (inQuote) {
+      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i += 2; continue; }
+      if (ch === '"') { inQuote = false; i += 1; continue; }
+      cur += ch; i += 1; continue;
+    }
+    if (ch === '"') { inQuote = true; i += 1; continue; }
+    if (ch === sep) { out.push(cur); cur = ''; i += 1; continue; }
+    cur += ch; i += 1;
+  }
+  out.push(cur);
+  return out;
+}
+
+/**
  * Склад инвентары.
  * Маңызды инвариант: `StockItem.quantity` әрдайым `StockMovement` журналымен сәйкес.
  * Барлық жаңартулар атомдық (`prisma.$transaction`) — гонка жоқ.
@@ -260,6 +285,170 @@ export class StockService {
     ]);
 
     return { itemId: item.id, deducted: order.stockQuantity, balanceAfter: newBalance };
+  }
+
+  // ============== CSV ==============
+
+  /**
+   * CSV экспорт — Excel ашуға болады (BOM + ; бөлгіш).
+   */
+  async exportCsv(): Promise<string> {
+    const items = await this.prisma.stockItem.findMany({
+      where: { isActive: true },
+      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+    });
+
+    const header = ['SKU', 'Атау', 'Санат', 'Өлшем', 'Қалдық', 'Мин', 'Орны', 'Ескертпе'];
+    const rows = items.map((i) => [
+      i.sku || '',
+      i.name,
+      i.category || '',
+      i.unit,
+      i.quantity.toString(),
+      i.minQuantity?.toString() || '',
+      i.location || '',
+      i.notes || '',
+    ]);
+
+    const escape = (v: string) => {
+      const needsQuotes = /[",\n;]/.test(v);
+      const escaped = v.replace(/"/g, '""');
+      return needsQuotes ? `"${escaped}"` : escaped;
+    };
+
+    const csv = [header, ...rows]
+      .map((r) => r.map((c) => escape(c ?? '')).join(';'))
+      .join('\r\n');
+
+    return '﻿' + csv;
+  }
+
+  /**
+   * CSV импорт. Тақырып: SKU; Атау; Санат; Өлшем; Қалдық; Мин; Орны; Ескертпе
+   * (бағана аттары — алғашқы жолда. Бөлгіш: ; немесе ,)
+   * - SKU бар бірлік табылса — мета жаңартылады, қалдық тиілмейді.
+   * - SKU бойынша табылмаса — жаңа бірлік жасалады, қалдық IN қозғалысы ретінде.
+   */
+  async importCsv(content: string, userId: string) {
+    const text = content.replace(/^﻿/, '').trim();
+    if (!text) {
+      return { ok: false, message: 'CSV бос', created: 0, updated: 0, errors: [] };
+    }
+
+    const lines = text.split(/\r?\n/);
+    const sep = lines[0].includes(';') ? ';' : ',';
+    const headers = parseCsvLine(lines[0], sep).map((h) => h.trim().toLowerCase());
+
+    const idx = (key: string) => headers.findIndex((h) => h === key);
+    const colSku = idx('sku');
+    const colName = headers.findIndex((h) => h === 'атау' || h === 'name');
+    const colCategory = headers.findIndex((h) => h === 'санат' || h === 'category');
+    const colUnit = headers.findIndex((h) => h === 'өлшем' || h === 'unit');
+    const colQty = headers.findIndex((h) => h === 'қалдық' || h === 'quantity');
+    const colMin = headers.findIndex((h) => h === 'мин' || h === 'min' || h === 'minquantity');
+    const colLocation = headers.findIndex((h) => h === 'орны' || h === 'location');
+    const colNotes = headers.findIndex((h) => h === 'ескертпе' || h === 'notes');
+
+    if (colName === -1) {
+      return {
+        ok: false,
+        message: '"Атау" (name) бағанасы табылмады',
+        created: 0,
+        updated: 0,
+        errors: [],
+      };
+    }
+
+    let created = 0;
+    let updated = 0;
+    const errors: Array<{ row: number; message: string }> = [];
+
+    for (let i = 1; i < lines.length; i += 1) {
+      const raw = lines[i];
+      if (!raw.trim()) continue;
+      const cells = parseCsvLine(raw, sep);
+      const get = (col: number) => (col >= 0 && col < cells.length ? cells[col].trim() : '');
+
+      const name = get(colName);
+      if (!name) {
+        errors.push({ row: i + 1, message: 'Атау бос' });
+        continue;
+      }
+
+      const sku = get(colSku) || null;
+      const category = get(colCategory) || null;
+      const unit = get(colUnit) || 'дана';
+      const qtyStr = get(colQty);
+      const minStr = get(colMin);
+      const location = get(colLocation) || null;
+      const notes = get(colNotes) || null;
+
+      const qty = qtyStr ? Number(qtyStr.replace(',', '.')) : 0;
+      const minQty = minStr ? Number(minStr.replace(',', '.')) : null;
+
+      if (qtyStr && !Number.isFinite(qty)) {
+        errors.push({ row: i + 1, message: `Дұрыс қалдық емес: "${qtyStr}"` });
+        continue;
+      }
+      if (minStr && !Number.isFinite(minQty as number)) {
+        errors.push({ row: i + 1, message: `Дұрыс мин емес: "${minStr}"` });
+        continue;
+      }
+
+      try {
+        const existing = sku
+          ? await this.prisma.stockItem.findUnique({ where: { sku } })
+          : null;
+
+        if (existing) {
+          await this.prisma.stockItem.update({
+            where: { id: existing.id },
+            data: {
+              name,
+              category,
+              unit,
+              location,
+              notes,
+              minQuantity: minQty != null ? new Prisma.Decimal(minQty) : null,
+            },
+          });
+          updated += 1;
+        } else {
+          const initial = new Prisma.Decimal(qty || 0);
+          await this.prisma.$transaction(async (tx) => {
+            const item = await tx.stockItem.create({
+              data: {
+                name,
+                sku,
+                category,
+                unit,
+                location,
+                notes,
+                quantity: initial,
+                minQuantity: minQty != null ? new Prisma.Decimal(minQty) : null,
+              },
+            });
+            if (initial.greaterThan(0)) {
+              await tx.stockMovement.create({
+                data: {
+                  stockItemId: item.id,
+                  type: StockMovementType.IN,
+                  quantity: initial,
+                  balanceAfter: initial,
+                  comment: 'CSV импорттан',
+                  createdById: userId,
+                },
+              });
+            }
+          });
+          created += 1;
+        }
+      } catch (e: any) {
+        errors.push({ row: i + 1, message: e?.message || 'Қате' });
+      }
+    }
+
+    return { ok: true, created, updated, errors };
   }
 
   // ============== STATS ==============

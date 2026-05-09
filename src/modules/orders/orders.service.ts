@@ -3,7 +3,7 @@ import { OrderStatus, UserRole, Prisma, FulfillmentType } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StockService } from '../stock/stock.service';
-import { CreateOrderDto, ChangeStatusDto } from './dto/order.dto';
+import { CreateOrderDto, ChangeStatusDto, LinkStockDto } from './dto/order.dto';
 import { canTransition, STATUS_DEFAULT_ROLE } from './order-state-machine';
 
 @Injectable()
@@ -68,6 +68,9 @@ export class OrdersService {
         files: {
           include: { uploadedBy: { select: { fullName: true } } },
           orderBy: { createdAt: 'desc' },
+        },
+        stockItem: {
+          select: { id: true, name: true, unit: true, quantity: true, sku: true },
         },
       },
     });
@@ -232,6 +235,47 @@ export class OrdersService {
     }
 
     return updated;
+  }
+
+  /**
+   * STOCK fulfillment-ге склад бірлігін байлау/өзгерту/алу.
+   * Шегеру әлі болмаған тапсырыстарға ғана қолданылады.
+   */
+  async linkStock(orderId: string, dto: LinkStockDto) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, stockDeductedAt: true },
+    });
+    if (!order) throw new NotFoundException('Тапсырыс табылмады');
+    if (order.stockDeductedAt) {
+      throw new BadRequestException('Бұл тапсырыс үшін шегеру жасалған, қайта байлау мүмкін емес');
+    }
+
+    if (dto.stockItemId === null || dto.stockItemId === '') {
+      return this.prisma.order.update({
+        where: { id: orderId },
+        data: { stockItemId: null, stockQuantity: null },
+      });
+    }
+
+    if (!dto.stockItemId) {
+      throw new BadRequestException('stockItemId қажет');
+    }
+
+    const item = await this.prisma.stockItem.findUnique({ where: { id: dto.stockItemId } });
+    if (!item) throw new NotFoundException('Склад бірлігі табылмады');
+
+    if (dto.stockQuantity == null || dto.stockQuantity <= 0) {
+      throw new BadRequestException('stockQuantity > 0 болуы керек');
+    }
+
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        stockItemId: dto.stockItemId,
+        stockQuantity: new Prisma.Decimal(dto.stockQuantity),
+      },
+    });
   }
 
   /** CSV экспорт (Excel ашуға болады, BOM қосылған) */

@@ -58,20 +58,22 @@ planExecDate >= today           (мерзімі әлі келмеген)
 Cron: 5 минутта жаңарады
 ```
 
-## Аяқтамаған жұмыс
+## Аяқталған Phase D — Склад инвентарь ✅
 
-### Phase D — Склад инвентарь
-- `StockItem` моделі (атау, категория, саны, орны)
-- CSV import (Excel/Google Sheets-тен)
-- Inventory дашборд
-- LOADING-та автоматты −N (тапсырыс quantity бойынша)
-- Excel экспорт
+- `StockItem` + `StockMovement` (audit trail) моделдері
+- /inventory дашборд: іздеу, төмен қалдық сүзгісі, санат бойынша топтастыру
+- /inventory/:id мәлімет беті: үлкен қалдық дисплейі, IN/OUT/ADJUST форма, соңғы 50 қозғалыс
+- /inventory/new + /inventory/:id/edit — CRUD
+- CSV экспорт (`/stock/export.csv`) және CSV импорт (`/stock/import` multipart)
+- OrderDetail-да "Склад байланысы" — STOCK тапсырысқа склад бірлігі мен мөлшерді бекіту
+- LOADING → LOGISTICS өткенде автоматты `OUT` қозғалысы (идемпотентті, `stockDeductedAt` арқылы)
 
-### Cleanup
-- Бар 65 тапсырыс — ішінде ~35 "Утвержден" актісі барлары
-- Admin-ге арнайы "Бітіп қойған тапсырыстарды тазарту" батырмасы
+## Cleanup ✅
 
-### Quality of life (Phase 2 идеялары)
+- POST /goszakup/cleanup-approved (ADMIN) — Goszakup-та "Утвержден" актісі бар тапсырыстарды CLOSED-ке тазарту
+- Admin GoszakupSync картасында батырма
+
+## Quality of life (Phase 2 идеялары)
 - SLA трекер әр кезеңге (қызыл flag)
 - Director Daily Digest (таңертеңгі дайджест)
 - Forced acknowledgment (Telegram inline batырма)
@@ -81,11 +83,27 @@ Cron: 5 минутта жаңарады
 ## Соңғы commit-тер
 
 ```
+ebf116e Phase D: stock inventory with audit-trail movements
+115a0fc Admin cleanup: close orders with approved Goszakup acts
 0d51e2d Goszakup: skip approved acts (statusId=15)
 31089e2 Use customerLegalAddress for delivery, not supplier
 568246f Phase 2: STORAGE, transport info, control notifications
-0049872 Phase 1: STOCK vs PRODUCTION fulfillment routing
-4167219 ADMIN role-impersonation
+```
+
+## Жаңа REST endpoints
+
+```
+GET    /stock                       # тізім (search, lowOnly, all)
+GET    /stock/stats                 # дашборд статистикасы
+GET    /stock/:id                   # мәлімет + соңғы 50 қозғалыс
+POST   /stock                       # жаңа бірлік (ADMIN, LOADING)
+PATCH  /stock/:id                   # өңдеу
+DELETE /stock/:id                   # архивтеу (soft, ADMIN)
+POST   /stock/:id/movements         # IN / OUT / ADJUST
+GET    /stock/export.csv            # CSV экспорт
+POST   /stock/import                # CSV импорт (multipart file)
+PATCH  /orders/:id/stock-link       # тапсырысқа склад бірлігін бекіту
+POST   /goszakup/cleanup-approved   # бітіп қойғандарды тазарту
 ```
 
 ## Қайта бастау командалары

@@ -7,6 +7,7 @@ import { StageStepper } from '../components/StageStepper';
 import { TaskCard } from '../components/TaskCard';
 import { FileGallery } from '../components/FileGallery';
 import { TransportInfoForm } from '../components/TransportInfoForm';
+import { StockBinding } from '../components/StockBinding';
 import { ordersApi, productionApi } from '../api/endpoints';
 import { useAuth } from '../hooks/useAuth';
 import type { FileType, FulfillmentType, Order, OrderStatus, UserRole } from '../types';
@@ -215,6 +216,26 @@ export function OrderDetailPage() {
           <Row label="Жауапты" value={`${order.responsible.fullName} (${ROLE_LABEL[order.responsible.role]})`} />
         )}
       </div>
+
+      {/* Склад байланысы — STOCK fulfillment немесе STORAGE/LOADING кезеңіндегі тапсырыстар */}
+      {(order.fulfillmentType === 'STOCK' ||
+        order.status === 'STORAGE' ||
+        order.status === 'LOADING' ||
+        order.stockItem) && (
+        <>
+          <h3 className="section-title">📦 Склад</h3>
+          <StockBinding
+            order={order}
+            canEdit={
+              !order.stockDeductedAt &&
+              (effectiveRole === 'ADMIN' ||
+               effectiveRole === 'LOADING' ||
+               effectiveRole === 'DIRECTOR')
+            }
+            onUpdated={() => void load()}
+          />
+        </>
+      )}
 
       {/* Көлік ақпараты — толтырылған болса көрсетеміз (Logistics + кейінгі кезеңдерде) */}
       {(order.transportProvider || order.driverName || order.vehiclePlate) && (

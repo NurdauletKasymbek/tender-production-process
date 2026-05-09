@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { Spinner } from '../components/Spinner';
@@ -6,6 +6,7 @@ import { EmptyState } from '../components/EmptyState';
 import { stockApi } from '../api/endpoints';
 import type { StockItem, StockStats } from '../types';
 import { useAuth } from '../hooks/useAuth';
+import { hapticNotify } from '../utils/telegram';
 
 const FMT = new Intl.NumberFormat('kk-KZ', { maximumFractionDigits: 3 });
 const num = (v: string | number | null | undefined) => Number(v ?? 0);
@@ -26,6 +27,11 @@ export function InventoryListPage() {
   const [filter, setFilter] = useState<'all' | 'low'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<
+    { ok: boolean; created: number; updated: number; errors: Array<{ row: number; message: string }>; message?: string } | null
+  >(null);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -109,10 +115,86 @@ export function InventoryListPage() {
       </div>
 
       {canEdit && (
-        <Link to="/inventory/new" className="btn btn--primary btn--lg btn--block">
-          <span aria-hidden>+</span>
-          <span>Жаңа бірлік</span>
-        </Link>
+        <div className="flex gap-sm" style={{ flexDirection: 'column' }}>
+          <Link to="/inventory/new" className="btn btn--primary btn--lg btn--block">
+            <span aria-hidden>+</span>
+            <span>Жаңа бірлік</span>
+          </Link>
+          <div className="flex gap-sm" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+            <button
+              className="btn btn--soft"
+              onClick={() => void stockApi.downloadCsv()}
+            >
+              <span aria-hidden>📊</span>
+              <span>CSV экспорт</span>
+            </button>
+            <button
+              className="btn btn--soft"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+            >
+              <span aria-hidden>📥</span>
+              <span>{importing ? 'Жүктелуде...' : 'CSV импорт'}</span>
+            </button>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            style={{ display: 'none' }}
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              setImporting(true); setImportResult(null);
+              try {
+                const res = await stockApi.importCsv(f);
+                setImportResult(res);
+                hapticNotify(res.ok ? 'success' : 'error');
+                if (res.ok && (res.created > 0 || res.updated > 0)) await load();
+              } catch (err: any) {
+                setImportResult({
+                  ok: false,
+                  created: 0,
+                  updated: 0,
+                  errors: [],
+                  message: err?.response?.data?.message || err?.message || 'Қате',
+                });
+                hapticNotify('error');
+              } finally {
+                setImporting(false);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+              }
+            }}
+          />
+          {importResult && (
+            <div
+              className={`alert ${importResult.ok ? 'alert--success' : 'alert--error'}`}
+              style={{ fontSize: 12.5, alignItems: 'flex-start' }}
+            >
+              <span>{importResult.ok ? '✓' : '⚠️'}</span>
+              <div style={{ flex: 1 }}>
+                {importResult.ok ? (
+                  <>
+                    Жасалды: <strong>{importResult.created}</strong>,
+                    жаңартылды: <strong>{importResult.updated}</strong>
+                  </>
+                ) : (
+                  <span>{importResult.message || 'Қате'}</span>
+                )}
+                {importResult.errors.length > 0 && (
+                  <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                    {importResult.errors.slice(0, 5).map((e, i) => (
+                      <li key={i}>Жол {e.row}: {e.message}</li>
+                    ))}
+                    {importResult.errors.length > 5 && (
+                      <li>...және тағы {importResult.errors.length - 5}</li>
+                    )}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {loading ? (

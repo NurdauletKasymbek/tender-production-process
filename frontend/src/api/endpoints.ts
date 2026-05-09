@@ -77,6 +77,11 @@ export const ordersApi = {
     notes?: string;
     fulfillmentType?: FulfillmentType;
   }) => api.post<Order>('/orders', body).then((r) => r.data),
+
+  linkStock: (id: string, body: {
+    stockItemId?: string | null;
+    stockQuantity?: number;
+  }) => api.patch<Order>(`/orders/${id}/stock-link`, body).then((r) => r.data),
 };
 
 export const productionApi = {
@@ -186,6 +191,33 @@ export const stockApi = {
   }) => api.post<{ item: StockItem; movement: StockMovement }>(
     `/stock/${id}/movements`, body,
   ).then((r) => r.data),
+
+  downloadCsv: async () => {
+    const res = await api.get('/stock/export.csv', { responseType: 'blob' });
+    const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `stock-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
+  importCsv: (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post<{
+      ok: boolean;
+      created: number;
+      updated: number;
+      errors: Array<{ row: number; message: string }>;
+      message?: string;
+    }>('/stock/import', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data);
+  },
 };
 
 export const notificationsApi = {

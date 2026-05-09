@@ -1,9 +1,15 @@
 import {
-  Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards,
+  BadRequestException,
+  Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res,
+  UploadedFile, UseGuards, UseInterceptors,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
+import 'multer';
+import { memoryStorage } from 'multer';
+import type { Response } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import {
@@ -38,6 +44,48 @@ export class StockController {
   @ApiOperation({ summary: 'Склад статистикасы' })
   stats() {
     return this.stock.stats();
+  }
+
+  @Get('export.csv')
+  @Roles(UserRole.ADMIN, UserRole.LOADING, UserRole.DIRECTOR)
+  @ApiOperation({ summary: 'Склад бірліктерін CSV-ке экспорттау' })
+  async exportCsv(@Res() res: Response) {
+    const csv = await this.stock.exportCsv();
+    const date = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="stock-${date}.csv"`,
+    );
+    res.send(csv);
+  }
+
+  @Post('import')
+  @Roles(UserRole.ADMIN, UserRole.LOADING)
+  @ApiOperation({
+    summary: 'CSV импорт. Тақырып: SKU; Атау; Санат; Өлшем; Қалдық; Мин; Орны; Ескертпе',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+      required: ['file'],
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  importCsv(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Req() req: any,
+  ) {
+    if (!file) throw new BadRequestException('Файл тіркелмеген');
+    const content = file.buffer.toString('utf8');
+    return this.stock.importCsv(content, req.user.id);
   }
 
   @Get(':id')
