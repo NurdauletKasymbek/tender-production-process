@@ -38,13 +38,6 @@ COPY package.json package-lock.json ./
 ENV NODE_ENV=production
 EXPOSE 3000
 
-# db push (MVP — migrations папкасы әзірге жоқ) + start
-# Кейін `prisma migrate dev` арқылы migration файлдары жасалғанда
-# мынаны `prisma migrate deploy` дегенге ауыстырамыз.
-# Ескерту: tsconfig include-та `prisma/**/*` болғандықтан, output
-# `dist/src/main.js`-ке шығады (`dist/main.js`-ке емес).
-#
-# --accept-data-loss: Prisma жаңа unique constraint қосуды "потенциалды
-# деректер жоғалуы" деп есептейді (ережелер сақтық үшін). Бізде нақты
-# қауіп жоқ — бар жазбаларда жаңа NULL өрістер ғана.
-CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist/src/main"]
+# start:prod ішінде: db push (--accept-data-loss) + seed + node main
+# Seed идемпотентті — әр restart сайын қауіпсіз орындалады.
+CMD ["npm", "run", "start:prod"]
