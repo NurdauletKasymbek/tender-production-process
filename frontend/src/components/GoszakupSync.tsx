@@ -12,10 +12,19 @@ interface SyncResult {
   message?: string;
 }
 
+interface CleanupResult {
+  ok: boolean;
+  fetched?: number;
+  closedDoneIds?: number;
+  closed?: number;
+  message?: string;
+}
+
 export function GoszakupSync({ onSynced }: { onSynced?: () => void }) {
   const [configured, setConfigured] = useState<boolean | null>(null);
-  const [busy, setBusy] = useState<'sync' | 'bulk' | null>(null);
+  const [busy, setBusy] = useState<'sync' | 'bulk' | 'cleanup' | null>(null);
   const [last, setLast] = useState<SyncResult | null>(null);
+  const [cleanup, setCleanup] = useState<CleanupResult | null>(null);
 
   useEffect(() => {
     goszakupApi.status()
@@ -40,6 +49,27 @@ export function GoszakupSync({ onSynced }: { onSynced?: () => void }) {
       if (res.ok && res.created && res.created > 0) onSynced?.();
     } catch (e: any) {
       setLast({ ok: false, message: e.message || 'Қате' });
+      hapticNotify('error');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const runCleanup = async () => {
+    const ok = await showConfirm(
+      'Goszakup-та "Утвержден" актісі бар тапсырыстар CLOSED күйіне ауыстырылады. ' +
+        'Бұл деректерді өзгертеді — жалғастырамыз ба?',
+    );
+    if (!ok) return;
+    setBusy('cleanup');
+    try {
+      hapticImpact('light');
+      const res = await goszakupApi.cleanupApproved();
+      setCleanup(res);
+      hapticNotify(res.ok ? 'success' : 'error');
+      if (res.ok && res.closed && res.closed > 0) onSynced?.();
+    } catch (e: any) {
+      setCleanup({ ok: false, message: e.message || 'Қате' });
       hapticNotify('error');
     } finally {
       setBusy(null);
@@ -119,6 +149,42 @@ export function GoszakupSync({ onSynced }: { onSynced?: () => void }) {
             <>
               <span>⚠️</span>
               <span>{last.message || 'Синхрондау сәтсіз'}</span>
+            </>
+          )}
+        </div>
+      )}
+
+      <button
+        className="btn btn--ghost btn--block"
+        onClick={() => void runCleanup()}
+        disabled={!!busy || !configured}
+        style={{ fontSize: 13 }}
+      >
+        {busy === 'cleanup' ? 'Тазарту орындалуда...' : (
+          <>
+            <span aria-hidden>🧹</span>
+            <span>Бітіп қойғандарды тазарту</span>
+          </>
+        )}
+      </button>
+
+      {cleanup && (
+        <div
+          className={`alert ${cleanup.ok ? 'alert--success' : 'alert--error'}`}
+          style={{ fontSize: 12.5 }}
+        >
+          {cleanup.ok ? (
+            <>
+              <span>✓</span>
+              <span>
+                Goszakup-та бітіп қойған: <strong>{cleanup.closedDoneIds ?? 0}</strong>,
+                CLOSED-ке көшті: <strong>{cleanup.closed ?? 0}</strong>
+              </span>
+            </>
+          ) : (
+            <>
+              <span>⚠️</span>
+              <span>{cleanup.message || 'Тазарту сәтсіз'}</span>
             </>
           )}
         </div>

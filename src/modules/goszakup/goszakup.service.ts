@@ -278,6 +278,131 @@ export class GoszakupService {
   }
 
   /**
+   * Goszakup-та "Утвержден" актісі бар (statusId=15) немесе faktExecDate белгіленген
+   * келісімшарттарға сай тапсырыстарды CLOSED күйіне ауыстырады.
+   *
+   * Бұл деректер базасында бұрыннан жатқан, бірақ Goszakup жағында бітіп қойған
+   * тапсырыстарды тазарту үшін қолданылады (бір реттік немесе мерзімдік).
+   */
+  async cleanupApprovedOrders(userId: string): Promise<{
+    ok: boolean;
+    configured: boolean;
+    fetched?: number;
+    closedDoneIds?: number;
+    closed?: number;
+    message?: string;
+  }> {
+    if (!this.isConfigured()) {
+      return {
+        ok: false,
+        configured: false,
+        message: 'GOSZAKUP_API_TOKEN немесе GOSZAKUP_BIN орнатылмаған',
+      };
+    }
+
+    try {
+      const bin = this.config.get<string>('GOSZAKUP_BIN')!;
+      const filter: Record<string, unknown> = {
+        supplierBiin: bin,
+        refContractStatusId: [ACTIVE_STATUS_ID],
+      };
+
+      const all: ContractNode[] = [];
+      let after: number | undefined;
+      const PAGE = 100;
+      const MAX_PAGES = 20;
+
+      for (let page = 0; page < MAX_PAGES; page += 1) {
+        const variables = { filter, limit: PAGE, after };
+        const { data } = await this.http.post('/graphql', {
+          query: CONTRACT_QUERY,
+          variables,
+        });
+        if (data.errors) {
+          throw new Error(data.errors[0]?.message || 'GraphQL error');
+        }
+        const items: ContractNode[] = data.data?.Contract || [];
+        if (items.length === 0) break;
+        all.push(...items);
+
+        const nextLastId = data.extensions?.pageInfo?.lastId;
+        const hasNext = data.extensions?.pageInfo?.hasNextPage;
+        if (!hasNext || !nextLastId) break;
+        after = Number(nextLastId);
+      }
+
+      const doneIds = all
+        .filter(
+          (c) =>
+            (c.Acts && c.Acts.some((a) => a.statusId === ACT_APPROVED_STATUS)) ||
+            !!c.faktExecDate,
+        )
+        .map((c) => String(c.id));
+
+      if (doneIds.length === 0) {
+        return {
+          ok: true,
+          configured: true,
+          fetched: all.length,
+          closedDoneIds: 0,
+          closed: 0,
+        };
+      }
+
+      const toClose = await this.prisma.order.findMany({
+        where: {
+          goszakupId: { in: doneIds },
+          status: { notIn: [OrderStatus.CLOSED, OrderStatus.REJECTED] },
+        },
+        select: { id: true, status: true },
+      });
+
+      const now = new Date();
+      let closed = 0;
+      for (const o of toClose) {
+        await this.prisma.$transaction([
+          this.prisma.order.update({
+            where: { id: o.id },
+            data: {
+              status: OrderStatus.CLOSED,
+              completedAt: now,
+              responsibleId: null,
+            },
+          }),
+          this.prisma.orderStatusHistory.create({
+            data: {
+              orderId: o.id,
+              fromStatus: o.status,
+              toStatus: OrderStatus.CLOSED,
+              changedById: userId,
+              comment: 'Goszakup-та "Утвержден" актісі — автоматты тазарту',
+            },
+          }),
+        ]);
+        closed += 1;
+      }
+
+      this.logger.log(
+        `Cleanup: Goszakup-та ${doneIds.length} бітіп қойған, БД-да ${closed} тапсырыс CLOSED-ке көшті`,
+      );
+
+      return {
+        ok: true,
+        configured: true,
+        fetched: all.length,
+        closedDoneIds: doneIds.length,
+        closed,
+      };
+    } catch (e: any) {
+      return {
+        ok: false,
+        configured: true,
+        message: e?.message || 'Cleanup қатесі',
+      };
+    }
+  }
+
+  /**
    * Админ батырмасы үшін қолмен синхрондау.
    * `silent: true`   — Telegram хабарламаларсыз (бастапқы импорт)
    * `allYears: true` — барлық жылдар бойынша (әдепкі: тек ағымдағы жыл)

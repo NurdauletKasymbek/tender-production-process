@@ -105,6 +105,15 @@ export const goszakupApi = {
       silent?: boolean;
       message?: string;
     }>('/goszakup/sync', undefined, { params: silent ? { silent: 'true' } : {} }).then((r) => r.data),
+  cleanupApproved: () =>
+    api.post<{
+      ok: boolean;
+      configured?: boolean;
+      fetched?: number;
+      closedDoneIds?: number;
+      closed?: number;
+      message?: string;
+    }>('/goszakup/cleanup-approved').then((r) => r.data),
 };
 
 export const filesApi = {

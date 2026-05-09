@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Query, UseGuards, Module } from '@nestjs/common';
+import { Controller, Get, Post, Query, Req, UseGuards, Module } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
@@ -34,6 +34,15 @@ export class GoszakupController {
   @ApiOperation({ summary: 'Goszakup интеграциясының күйі' })
   status() {
     return { configured: this.goszakup.isConfigured() };
+  }
+
+  @Post('cleanup-approved')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Goszakup-та "Утвержден" актісі бар тапсырыстарды CLOSED-ке тазарту',
+  })
+  cleanup(@Req() req: any) {
+    return this.goszakup.cleanupApprovedOrders(req.user.id);
   }
 }
 
