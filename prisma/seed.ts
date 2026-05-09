@@ -80,19 +80,27 @@ async function main() {
   ];
 
   for (const e of employees) {
-    // Username-мен бірегейлендіреміз (telegramId енді міндетті емес).
-    const existing = await prisma.user.findUnique({ where: { username: e.username } });
+    // Бар жазбаны бірнеше тәсілмен іздейміз:
+    //   1) username бойынша (қазір бар болса)
+    //   2) telegramId бойынша (ескі жазба, әлі username-сіз)
+    // Бір-ақ біреу табылса — оны жаңартамыз. Жоқ болса — жасаймыз.
+    let existing = await prisma.user.findUnique({ where: { username: e.username } });
+    if (!existing && e.telegramId !== null) {
+      existing = await prisma.user.findUnique({ where: { telegramId: e.telegramId } });
+    }
+
     if (existing) {
-      // Бар болса — паролін НИ ӨЗГЕРТПЕЙМІЗ (Admin қойған жаңасы сақталсын),
-      // тек атын/рөлін/telegramId-ін жаңартамыз.
       await prisma.user.update({
         where: { id: existing.id },
         data: {
           fullName: e.fullName,
           role: e.role,
           isActive: true,
-          ...(e.telegramId !== null ? { telegramId: e.telegramId } : {}),
-          // Парольсіз қалған ескі тіркелгіге — әдепкі парольді қоямыз
+          username: existing.username || e.username,
+          ...(e.telegramId !== null && existing.telegramId == null
+            ? { telegramId: e.telegramId }
+            : {}),
+          // Бар парольді өзгертпейміз; парольсіздерге әдепкіні қоямыз
           ...(existing.passwordHash ? {} : { passwordHash }),
         },
       });
