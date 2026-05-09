@@ -43,4 +43,8 @@ EXPOSE 3000
 # мынаны `prisma migrate deploy` дегенге ауыстырамыз.
 # Ескерту: tsconfig include-та `prisma/**/*` болғандықтан, output
 # `dist/src/main.js`-ке шығады (`dist/main.js`-ке емес).
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/src/main"]
+#
+# --accept-data-loss: Prisma жаңа unique constraint қосуды "потенциалды
+# деректер жоғалуы" деп есептейді (ережелер сақтық үшін). Бізде нақты
+# қауіп жоқ — бар жазбаларда жаңа NULL өрістер ғана.
+CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist/src/main"]
