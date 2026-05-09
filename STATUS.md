@@ -9,20 +9,24 @@
 | Database | Neon Postgres (`tender-mvp`) | DATABASE_URL Railway env-те |
 | Bot | [@GOSCONTROL_bot](https://t.me/GOSCONTROL_bot) | Polling режимінде Railway-да |
 
-## Қызметкерлер
+## Қызметкерлер мен парольдер
 
-| Рөл | Аты-жөні | Telegram ID |
-|---|---|---|
-| ADMIN | Қасымбеков Нұрдәулет | `8467447289` ✅ |
-| DIRECTOR | Төлегенов Бағдат Қалдыбекұлы | placeholder `1` ⏳ |
-| TENDER_DEPARTMENT | Қасымбеков Мейірбек Құралбайұлы | placeholder `2` ⏳ |
-| PRODUCTION_HEAD | Лесов Жаңабай Құралбайұлы | placeholder `3` ⏳ |
-| PACKAGING | Серікбай | placeholder `4` ⏳ |
-| LOGISTICS | Қасымбеков Мейірбек (екі рөл) | placeholder `5` ⏳ |
-| LOADING | Тиеу/Склад жауаптысы | placeholder `6` ⏳ |
+Енді **username/password арқылы кіреміз** (Telegram қажет емес).
+Telegram ID — тек хабарлама алу үшін опционалды.
 
-> Қызметкер `@GOSCONTROL_bot` → `/myid` басу арқылы өз ID-сін алады.
-> Алынған ID-ні `prisma/seed.ts`-те ауыстырып, Railway-де `npm run prisma:seed`.
+| Логин | Пароль (әдепкі) | Аты-жөні | Рөл |
+|---|---|---|---|
+| `admin` | `tender2026` | Қасымбеков Нұрдәулет | ADMIN |
+| `director` | `tender2026` | Төлегенов Бағдат Қалдыбекұлы | DIRECTOR |
+| `tender` | `tender2026` | Қасымбеков Мейірбек Құралбайұлы | TENDER_DEPARTMENT |
+| `production` | `tender2026` | Лесов Жаңабай Құралбайұлы | PRODUCTION_HEAD |
+| `packaging` | `tender2026` | Серікбай | PACKAGING |
+| `logistics` | `tender2026` | Қасымбеков Мейірбек (екі рөл) | LOGISTICS |
+| `loading` | `tender2026` | Тиеу/Склад жауаптысы | LOADING |
+
+> Бірінші кіргеннен кейін **/admin/users** бетінде әрбір парольді жаңартыңыз
+> және қажет болса telegramId қосыңыз (қызметкер @GOSCONTROL_bot-та `/myid` басады).
+> Әдепкі парольдерді сейчасже өзгерту керек!
 
 ## Toлық flow
 
@@ -83,16 +87,22 @@ Cron: 5 минутта жаңарады
 ## Соңғы commit-тер
 
 ```
+* Username/password auth + admin user management
+17dcebc Stock CSV import/export + order stock-link UI
 ebf116e Phase D: stock inventory with audit-trail movements
 115a0fc Admin cleanup: close orders with approved Goszakup acts
 0d51e2d Goszakup: skip approved acts (statusId=15)
-31089e2 Use customerLegalAddress for delivery, not supplier
-568246f Phase 2: STORAGE, transport info, control notifications
 ```
 
 ## Жаңа REST endpoints
 
 ```
+POST   /auth/login                  # username + password → JWT
+GET    /users                       # қызметкерлер тізімі (ADMIN, DIRECTOR)
+POST   /users                       # жаңа қызметкер (ADMIN)
+PATCH  /users/:id                   # парольді/мәліметті жаңарту (ADMIN)
+PATCH  /users/:id/active/:value     # белсендіру/тоқтату (ADMIN)
+
 GET    /stock                       # тізім (search, lowOnly, all)
 GET    /stock/stats                 # дашборд статистикасы
 GET    /stock/:id                   # мәлімет + соңғы 50 қозғалыс

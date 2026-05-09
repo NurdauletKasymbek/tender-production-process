@@ -1,26 +1,37 @@
-import { useEffect } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { isTelegramApp } from '../utils/telegram';
-import type { UserRole } from '../types';
-import { ROLE_LABEL, ROLE_ICON } from '../utils/labels';
 import { Spinner } from '../components/Spinner';
 
-const DEMO_ROLES: UserRole[] = [
-  'ADMIN', 'TENDER_DEPARTMENT', 'DIRECTOR', 'PRODUCTION_HEAD',
-  'WORKSHOP_WORKER', 'PACKAGING', 'LOADING', 'LOGISTICS',
-];
-
 export function LoginPage() {
-  const { loginTelegram, loginAsDemo, loading, error } = useAuth();
+  const { loginTelegram, loginWithPassword, loading, error } = useAuth();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
+  // Telegram Mini App-та автоматты түрде Telegram арқылы кіруге тырысамыз.
   useEffect(() => {
     if (isTelegramApp()) {
       void loginTelegram();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (loading) return <Spinner label="Жүйеге кіру..." />;
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !password) return;
+    setSubmitting(true);
+    try {
+      await loginWithPassword(username.trim(), password);
+    } catch {
+      // қате useAuth-та сақталды
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading && isTelegramApp()) return <Spinner label="Жүйеге кіру..." />;
 
   return (
     <div className="login">
@@ -30,45 +41,90 @@ export function LoginPage() {
         </div>
         <h1 className="login__title">Тендер · Өндіріс</h1>
         <p className="login__subtitle">
-          Goszakup тендерлерін және өндіріс циклін бір жерден басқарыңыз.
+          Жүйеге кіру үшін логин мен парольді енгізіңіз.
         </p>
       </div>
 
-      {isTelegramApp() ? (
+      <form className="form" onSubmit={submit} autoComplete="on">
+        <label className="field">
+          <span className="field__label">Логин</span>
+          <input
+            className="input"
+            type="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="мысалы: admin"
+            required
+            autoFocus
+          />
+        </label>
+
+        <label className="field">
+          <span className="field__label">Пароль</span>
+          <div style={{ position: 'relative' }}>
+            <input
+              className="input"
+              type={showPwd ? 'text' : 'password'}
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              style={{ paddingRight: 64 }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPwd((v) => !v)}
+              style={{
+                position: 'absolute',
+                right: 8,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 12,
+                color: 'var(--text-muted, #666)',
+                padding: '4px 8px',
+              }}
+            >
+              {showPwd ? 'жасыру' : 'көрсету'}
+            </button>
+          </div>
+        </label>
+
+        {error && (
+          <div className="alert alert--error">
+            <span aria-hidden>⚠️</span>
+            <span>{error}</span>
+          </div>
+        )}
+
         <button
+          type="submit"
           className="btn btn--primary btn--lg btn--block"
-          onClick={() => void loginTelegram()}
+          disabled={submitting || !username.trim() || !password}
         >
-          <span>Telegram арқылы кіру</span>
-          <span aria-hidden>→</span>
+          {submitting ? 'Кіру...' : 'Кіру'}
         </button>
-      ) : (
-        <>
-          <div className="login__hint">
-            Қолданбаны Telegram-нан ашыңыз. Демо режимінде рөл таңдап көріңіз:
-          </div>
-          <div className="role-grid">
-            {DEMO_ROLES.map((role) => (
-              <button
-                key={role}
-                className="role-grid__item"
-                onClick={() => void loginAsDemo(role)}
-              >
-                <span className="role-grid__icon" aria-hidden>{ROLE_ICON[role]}</span>
-                <span className="role-grid__label">{ROLE_LABEL[role]}</span>
-                <span className="role-grid__code">{role}</span>
-              </button>
-            ))}
-          </div>
-        </>
+      </form>
+
+      {isTelegramApp() && (
+        <button
+          className="btn btn--ghost btn--block"
+          style={{ marginTop: 12, fontSize: 13 }}
+          onClick={() => void loginTelegram()}
+          disabled={loading}
+        >
+          Telegram арқылы кіру
+        </button>
       )}
 
-      {error && (
-        <div className="alert alert--error">
-          <span aria-hidden>⚠️</span>
-          <span>{error}</span>
-        </div>
-      )}
+      <div className="login__hint" style={{ marginTop: 16, fontSize: 12 }}>
+        Логиніңізді ұмыттыңыз ба? Әкімшіге хабарласыңыз.
+      </div>
     </div>
   );
 }

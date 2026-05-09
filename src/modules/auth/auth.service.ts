@@ -1,6 +1,8 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import * as bcrypt from 'bcrypt';
+import { User } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { validateTelegramInitData } from './telegram-auth.util';
 
@@ -37,12 +39,44 @@ export class AuthService {
       throw new UnauthorizedException('Сіздің тіркелгіңіз белсенді емес');
     }
 
+    return this.signFor(user);
+  }
+
+  /**
+   * Username + password арқылы кіру.
+   * Әкімші парольді алдын ала тағайындаған болуы керек.
+   */
+  async loginWithPassword(username: string, password: string) {
+    if (!username || !password) {
+      throw new UnauthorizedException('Логин мен пароль қажет');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { username: username.trim().toLowerCase() },
+    });
+
+    if (!user || !user.passwordHash) {
+      // Бірыңғай хабар — username бар ма, жоқ па ажыратпайды (timing-resistant).
+      throw new UnauthorizedException('Логин немесе пароль қате');
+    }
+    if (!user.isActive) {
+      throw new UnauthorizedException('Сіздің тіркелгіңіз белсенді емес');
+    }
+
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) {
+      throw new UnauthorizedException('Логин немесе пароль қате');
+    }
+
+    return this.signFor(user);
+  }
+
+  private async signFor(user: User) {
     const token = await this.jwt.signAsync({
       sub: user.id,
       role: user.role,
-      telegramId: user.telegramId.toString(),
+      telegramId: user.telegramId ? user.telegramId.toString() : null,
     });
-
     return {
       accessToken: token,
       user: this.publicUser(user),
@@ -50,19 +84,12 @@ export class AuthService {
   }
 
   /** Frontend-ке қауіпсіз қайтарылатын user жазбасы */
-  private publicUser(user: {
-    id: string;
-    telegramId: bigint;
-    telegramUsername: string | null;
-    fullName: string;
-    phone: string | null;
-    role: string;
-    isActive: boolean;
-  }) {
+  private publicUser(user: User) {
     return {
       id: user.id,
-      telegramId: user.telegramId.toString(),
+      telegramId: user.telegramId ? user.telegramId.toString() : null,
       telegramUsername: user.telegramUsername,
+      username: user.username,
       fullName: user.fullName,
       phone: user.phone,
       role: user.role,

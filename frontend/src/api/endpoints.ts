@@ -8,6 +8,8 @@ import type {
 export const authApi = {
   loginWithTelegram: (initData: string) =>
     api.post<AuthResponse>('/auth/telegram', { initData }).then((r) => r.data),
+  loginWithPassword: (username: string, password: string) =>
+    api.post<AuthResponse>('/auth/login', { username, password }).then((r) => r.data),
   me: () => api.get<import('../types').User>('/auth/me').then((r) => r.data),
 };
 
@@ -143,6 +145,44 @@ export const filesApi = {
     const base = (api.defaults.baseURL || '/api').replace(/\/$/, '');
     return `${base}/files/${id}${inline ? '?inline=true' : ''}`;
   },
+};
+
+export interface AdminUser {
+  id: string;
+  fullName: string;
+  role: import('../types').UserRole;
+  username: string | null;
+  telegramId: string | null;
+  telegramUsername: string | null;
+  phone: string | null;
+  isActive: boolean;
+  hasPassword: boolean;
+  createdAt: string;
+}
+
+export const usersApi = {
+  list: () => api.get<AdminUser[]>('/users').then((r) => r.data),
+  create: (body: {
+    fullName: string;
+    role: import('../types').UserRole;
+    username?: string;
+    password?: string;
+    telegramId?: string;
+    telegramUsername?: string;
+    phone?: string;
+  }) => api.post<AdminUser>('/users', body).then((r) => r.data),
+  update: (id: string, body: Partial<{
+    fullName: string;
+    role: import('../types').UserRole;
+    username: string;
+    password: string;
+    telegramId: string | null;
+    telegramUsername: string | null;
+    phone: string | null;
+    isActive: boolean;
+  }>) => api.patch<AdminUser>(`/users/${id}`, body).then((r) => r.data),
+  setActive: (id: string, isActive: boolean) =>
+    api.patch<AdminUser>(`/users/${id}/active/${isActive}`).then((r) => r.data),
 };
 
 export const stockApi = {

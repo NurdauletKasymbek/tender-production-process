@@ -28,7 +28,9 @@ export type FulfillmentType = 'PRODUCTION' | 'STOCK';
 
 export interface User {
   id: string;
-  telegramId: string;
+  telegramId: string | null;
+  telegramUsername?: string | null;
+  username?: string | null;
   fullName: string;
   role: UserRole;
   phone?: string | null;

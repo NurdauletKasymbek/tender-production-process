@@ -1,88 +1,126 @@
 import { PrismaClient, UserRole } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 /**
- * Нақты қызметкерлерді тіркеу.
+ * Қызметкерлерді тіркеу + әдепкі логин/парольдерді қою.
  *
- * Telegram ID-сі белгілі болғандарға — нақты `telegramId`,
- * әлі белгісіз болғандарға — `placeholderTelegramId` (кейін
- * /myid командасы арқылы алып, мұнда ауыстыратын болады).
+ * Username/password арқылы кіру (негізгі тәсіл):
+ *   admin / tender2026
+ *   director / tender2026
+ *   tender / tender2026
+ *   production / tender2026
+ *   packaging / tender2026
+ *   loading / tender2026
+ *   logistics / tender2026
  *
- * placeholderTelegramId логикасы:
- *   1n .. 9n   — әлі тіркелмеген қызметкерлер (нақты Telegram ID
- *                болатын мән — 1 миллиардтан үлкен)
+ * Әр қызметкер бірінші кірген соң — ADMIN /admin/users-те өз паролін
+ * жаңартып бере алады.
  *
- * Қызметкер `/start` басып, нақты ID алғанда — placeholder-ді
- * нақтысына ауыстырамыз. Ол үшін бұл файлды қайта seed жасау керек
- * (немесе DB Tables арқылы қолмен).
+ * Telegram ID — хабарлама жіберу үшін (қажет емес болса null қалады).
+ * Әкімші /admin/users-те telegramId өрісін кейін толтырып бере алады.
  */
+
+const DEFAULT_PASSWORD = 'tender2026';
+const SALT = 10;
+
 async function main() {
   console.log('🌱 Қызметкерлерді тіркеу...');
+  const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, SALT);
 
-  const employees = [
+  const employees: Array<{
+    username: string;
+    fullName: string;
+    role: UserRole;
+    telegramId: bigint | null;
+  }> = [
     {
-      telegramId: 8467447289n, // нақты — өзіңіздікі
+      username: 'admin',
       fullName: 'Қасымбеков Нұрдәулет',
       role: UserRole.ADMIN,
-      placeholder: false,
+      telegramId: 8467447289n,
     },
     {
-      telegramId: 1n, // әлі белгісіз
+      username: 'director',
       fullName: 'Төлегенов Бағдат Қалдыбекұлы',
       role: UserRole.DIRECTOR,
-      placeholder: true,
+      telegramId: null,
     },
     {
-      telegramId: 2n, // Тендер бөлімі = Логистика (бір адам)
+      username: 'tender',
       fullName: 'Қасымбеков Мейірбек Құралбайұлы',
       role: UserRole.TENDER_DEPARTMENT,
-      placeholder: true,
+      telegramId: null,
     },
     {
-      telegramId: 3n,
+      username: 'production',
       fullName: 'Лесов Жаңабай Құралбайұлы',
       role: UserRole.PRODUCTION_HEAD,
-      placeholder: true,
+      telegramId: null,
     },
     {
-      telegramId: 4n,
+      username: 'packaging',
       fullName: 'Серікбай (Қаптау)',
       role: UserRole.PACKAGING,
-      placeholder: true,
+      telegramId: null,
     },
     {
-      // Логистика — Мейірбек өзі (екінші рөл)
-      // Бір telegramId-ге екі User жасай алмаймыз, сондықтан жеке placeholder
-      telegramId: 5n,
+      username: 'logistics',
       fullName: 'Қасымбеков Мейірбек Құралбайұлы (Логистика)',
       role: UserRole.LOGISTICS,
-      placeholder: true,
+      telegramId: null,
     },
-    // LOADING рөлі — STORAGE кезеңіне сәйкес келеді (бөлек қызметкер керек болса осында қосамыз)
     {
-      telegramId: 6n,
+      username: 'loading',
       fullName: 'Тиеу/Склад жауаптысы',
       role: UserRole.LOADING,
-      placeholder: true,
+      telegramId: null,
     },
   ];
 
   for (const e of employees) {
-    await prisma.user.upsert({
-      where: { telegramId: e.telegramId },
-      update: { fullName: e.fullName, role: e.role, isActive: true },
-      create: { telegramId: e.telegramId, fullName: e.fullName, role: e.role },
-    });
+    // Username-мен бірегейлендіреміз (telegramId енді міндетті емес).
+    const existing = await prisma.user.findUnique({ where: { username: e.username } });
+    if (existing) {
+      // Бар болса — паролін НИ ӨЗГЕРТПЕЙМІЗ (Admin қойған жаңасы сақталсын),
+      // тек атын/рөлін/telegramId-ін жаңартамыз.
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          fullName: e.fullName,
+          role: e.role,
+          isActive: true,
+          ...(e.telegramId !== null ? { telegramId: e.telegramId } : {}),
+          // Парольсіз қалған ескі тіркелгіге — әдепкі парольді қоямыз
+          ...(existing.passwordHash ? {} : { passwordHash }),
+        },
+      });
+    } else {
+      await prisma.user.create({
+        data: {
+          username: e.username,
+          passwordHash,
+          fullName: e.fullName,
+          role: e.role,
+          telegramId: e.telegramId,
+        },
+      });
+    }
   }
 
-  const placeholders = employees.filter((e) => e.placeholder).length;
-  console.log(`✅ ${employees.length} қызметкер құрылды (${placeholders} placeholder Telegram ID-мен)`);
+  console.log(`✅ ${employees.length} қызметкер дайын`);
   console.log('');
-  console.log('📋 Келесі қадам:');
-  console.log('  Әр қызметкер @GOSCONTROL_bot-та /myid басады,');
-  console.log('  өз нөмірін маған/админге жібереді.');
-  console.log('  Содан кейін placeholder Telegram ID-ні нақтысына ауыстырамыз.');
+  console.log('🔐 Әдепкі парольдер (бірінші кірген соң ADMIN жаңартсын):');
+  console.log(`   Пароль: ${DEFAULT_PASSWORD}`);
+  console.log('   Логиндер:');
+  for (const e of employees) {
+    console.log(`     ${e.username.padEnd(12)} → ${e.fullName} (${e.role})`);
+  }
+  console.log('');
+  console.log('📲 Telegram хабарлама алу үшін:');
+  console.log('   ADMIN /admin/users бетінде әр қызметкердің telegramId-ін қояды');
+  console.log('   (қызметкер @GOSCONTROL_bot-та /myid басып ID-сін жібереді).');
   console.log('');
   console.log('🎉 Дайын!');
 }

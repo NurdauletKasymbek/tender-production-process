@@ -13,6 +13,7 @@ interface AuthCtx {
   loading: boolean;
   error: string | null;
   loginTelegram: () => Promise<void>;
+  loginWithPassword: (username: string, password: string) => Promise<void>;
   loginAsDemo: (role: UserRole) => Promise<void>;
   setRoleOverride: (role: UserRole | null) => void;
   logout: () => void;
@@ -52,6 +53,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(res.user);
     } catch (e: any) {
       setError(e.message || 'Кіру кезінде қате');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loginWithPassword = useCallback(async (username: string, password: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await authApi.loginWithPassword(username, password);
+      tokenStorage.set(res.accessToken);
+      setUser(res.user);
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || 'Кіру кезінде қате';
+      setError(typeof msg === 'string' ? msg : 'Кіру кезінде қате');
+      throw e;
     } finally {
       setLoading(false);
     }
@@ -131,9 +148,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user, effectiveRole, isImpersonating,
       loading, error,
-      loginTelegram, loginAsDemo, setRoleOverride, logout,
+      loginTelegram, loginWithPassword, loginAsDemo, setRoleOverride, logout,
     }),
-    [user, effectiveRole, isImpersonating, loading, error, loginTelegram, loginAsDemo, setRoleOverride, logout],
+    [user, effectiveRole, isImpersonating, loading, error, loginTelegram, loginWithPassword, loginAsDemo, setRoleOverride, logout],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

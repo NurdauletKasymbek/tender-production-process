@@ -1,31 +1,144 @@
 import {
-  Body, Controller, Get, Param, Patch, Post, UseGuards, Module, Injectable,
+  BadRequestException,
+  Body, Controller, Delete, Get, Injectable, Module,
+  NotFoundException, Param, Patch, Post, UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
+import { IsBoolean, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
+
+const SALT_ROUNDS = 10;
+
+class CreateUserDto {
+  @IsString() fullName: string;
+  @IsEnum(UserRole) role: UserRole;
+  @IsOptional() @IsString() username?: string;
+  @IsOptional() @IsString() @MinLength(6) password?: string;
+  @IsOptional() @IsString() telegramId?: string;
+  @IsOptional() @IsString() telegramUsername?: string;
+  @IsOptional() @IsString() phone?: string;
+}
+
+class UpdateUserDto {
+  @IsOptional() @IsString() fullName?: string;
+  @IsOptional() @IsEnum(UserRole) role?: UserRole;
+  @IsOptional() @IsString() username?: string;
+  @IsOptional() @IsString() @MinLength(6) password?: string;
+  @IsOptional() @IsString() telegramId?: string | null;
+  @IsOptional() @IsString() telegramUsername?: string | null;
+  @IsOptional() @IsString() phone?: string | null;
+  @IsOptional() @IsBoolean() isActive?: boolean;
+}
 
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
-  create(data: { telegramId: string; fullName: string; role: UserRole; phone?: string; telegramUsername?: string }) {
+  list() {
+    return this.prisma.user.findMany({
+      orderBy: [{ role: 'asc' }, { fullName: 'asc' }],
+      select: {
+        id: true,
+        fullName: true,
+        role: true,
+        username: true,
+        telegramId: true,
+        telegramUsername: true,
+        phone: true,
+        isActive: true,
+        // парольдің бар-жоғын ғана көрсетеміз — hash-тың өзін қайтармаймыз
+        passwordHash: true,
+        createdAt: true,
+      },
+    }).then((rows) => rows.map((r) => ({
+      ...r,
+      telegramId: r.telegramId ? r.telegramId.toString() : null,
+      hasPassword: !!r.passwordHash,
+      passwordHash: undefined,
+    })));
+  }
+
+  async create(dto: CreateUserDto) {
+    const username = dto.username?.trim().toLowerCase() || null;
+    const telegramId = dto.telegramId ? BigInt(dto.telegramId) : null;
+
+    if (username) {
+      const dup = await this.prisma.user.findUnique({ where: { username } });
+      if (dup) throw new BadRequestException(`Логин "${username}" қолданыста`);
+    }
+    if (telegramId) {
+      const dup = await this.prisma.user.findUnique({ where: { telegramId } });
+      if (dup) throw new BadRequestException(`Telegram ID қолданыста (${telegramId})`);
+    }
+
+    const passwordHash = dto.password
+      ? await bcrypt.hash(dto.password, SALT_ROUNDS)
+      : null;
+
     return this.prisma.user.create({
       data: {
-        telegramId: BigInt(data.telegramId),
-        fullName: data.fullName,
-        role: data.role,
-        phone: data.phone,
-        telegramUsername: data.telegramUsername,
+        fullName: dto.fullName,
+        role: dto.role,
+        username,
+        passwordHash,
+        telegramId,
+        telegramUsername: dto.telegramUsername || null,
+        phone: dto.phone || null,
       },
     });
   }
 
-  list() {
-    return this.prisma.user.findMany({ orderBy: [{ role: 'asc' }, { fullName: 'asc' }] });
+  async update(id: string, dto: UpdateUserDto) {
+    const exists = await this.prisma.user.findUnique({ where: { id } });
+    if (!exists) throw new NotFoundException('Қолданушы табылмады');
+
+    const data: any = {};
+    if (dto.fullName !== undefined) data.fullName = dto.fullName;
+    if (dto.role !== undefined) data.role = dto.role;
+    if (dto.phone !== undefined) data.phone = dto.phone || null;
+    if (dto.isActive !== undefined) data.isActive = dto.isActive;
+    if (dto.telegramUsername !== undefined) {
+      data.telegramUsername = dto.telegramUsername || null;
+    }
+
+    if (dto.username !== undefined) {
+      const u = dto.username?.trim().toLowerCase() || null;
+      if (u) {
+        const dup = await this.prisma.user.findFirst({
+          where: { username: u, NOT: { id } },
+        });
+        if (dup) throw new BadRequestException(`Логин "${u}" қолданыста`);
+      }
+      data.username = u;
+    }
+
+    if (dto.telegramId !== undefined) {
+      const tg = dto.telegramId ? BigInt(dto.telegramId) : null;
+      if (tg) {
+        const dup = await this.prisma.user.findFirst({
+          where: { telegramId: tg, NOT: { id } },
+        });
+        if (dup) throw new BadRequestException(`Telegram ID қолданыста (${tg})`);
+      }
+      data.telegramId = tg;
+    }
+
+    if (dto.password !== undefined && dto.password !== '') {
+      data.passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
+    }
+
+    const user = await this.prisma.user.update({ where: { id }, data });
+    return {
+      ...user,
+      telegramId: user.telegramId ? user.telegramId.toString() : null,
+      passwordHash: undefined,
+      hasPassword: !!user.passwordHash,
+    };
   }
 
   setActive(id: string, isActive: boolean) {
@@ -40,20 +153,30 @@ export class UsersService {
 export class UsersController {
   constructor(private users: UsersService) {}
 
-  @Post()
-  @Roles(UserRole.ADMIN)
-  create(@Body() body: any) {
-    return this.users.create(body);
-  }
-
   @Get()
   @Roles(UserRole.ADMIN, UserRole.DIRECTOR)
+  @ApiOperation({ summary: 'Қызметкерлер тізімі' })
   list() {
     return this.users.list();
   }
 
+  @Post()
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Жаңа қызметкер қосу' })
+  create(@Body() body: CreateUserDto) {
+    return this.users.create(body);
+  }
+
+  @Patch(':id')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Қызметкердің мәліметтерін/құпия сөзін жаңарту' })
+  update(@Param('id') id: string, @Body() body: UpdateUserDto) {
+    return this.users.update(id, body);
+  }
+
   @Patch(':id/active/:value')
   @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Тіркелгіні белсендіру/тоқтату' })
   setActive(@Param('id') id: string, @Param('value') value: string) {
     return this.users.setActive(id, value === 'true');
   }

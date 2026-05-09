@@ -30,7 +30,11 @@ export class NotificationsService {
       include: { user: true },
     });
 
-    // Telegram-ға жіберу
+    // Telegram-ға жіберу — telegramId болса ғана.
+    // Жоқ болса (тек username/password арқылы кіретін қызметкер), хабарлама БД-да қалады.
+    if (!notification.user.telegramId) {
+      return notification;
+    }
     try {
       await this.telegram.sendMessage(
         notification.user.telegramId,

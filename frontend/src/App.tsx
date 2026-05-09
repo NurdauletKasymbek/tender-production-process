@@ -12,6 +12,7 @@ import { InventoryListPage } from './pages/InventoryListPage';
 import { InventoryDetailPage } from './pages/InventoryDetailPage';
 import { InventoryNewPage } from './pages/InventoryNewPage';
 import { InventoryEditPage } from './pages/InventoryEditPage';
+import { AdminUsersPage } from './pages/AdminUsersPage';
 import { Layout } from './components/Layout';
 import { initTelegram } from './utils/telegram';
 import { Spinner } from './components/Spinner';
@@ -31,6 +32,7 @@ function ProtectedShell() {
         <Route path="/inventory/new" element={<InventoryNewPage />} />
         <Route path="/inventory/:id" element={<InventoryDetailPage />} />
         <Route path="/inventory/:id/edit" element={<InventoryEditPage />} />
+        <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

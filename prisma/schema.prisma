@@ -58,8 +58,13 @@ enum FulfillmentType {
 // ============== ҚОЛДАНУШЫ ==============
 model User {
   id              String   @id @default(uuid())
-  telegramId      BigInt   @unique
+  // Telegram байланысы — хабарлама жіберу үшін (бот: @GOSCONTROL_bot).
+  // telegramId міндетті емес — username/password арқылы кіретін, ботсыз қызметкерлер де болуы мүмкін.
+  telegramId      BigInt?  @unique
   telegramUsername String?
+  // Username/password арқылы кіру (Web UI).
+  username        String?  @unique
+  passwordHash    String?
   fullName        String
   phone           String?
   role            UserRole
