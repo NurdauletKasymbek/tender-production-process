@@ -11,6 +11,7 @@ import { GoszakupModule } from './modules/goszakup/goszakup.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { FilesModule } from './modules/files/files.module';
+import { StockModule } from './modules/stock/stock.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { FilesModule } from './modules/files/files.module';
     TelegramModule,
     NotificationsModule,
     FilesModule,
+    StockModule,
   ],
 })
 export class AppModule {}

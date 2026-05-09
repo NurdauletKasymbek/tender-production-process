@@ -8,6 +8,10 @@ import { OrderDetailPage } from './pages/OrderDetailPage';
 import { NewOrderPage } from './pages/NewOrderPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { InventoryListPage } from './pages/InventoryListPage';
+import { InventoryDetailPage } from './pages/InventoryDetailPage';
+import { InventoryNewPage } from './pages/InventoryNewPage';
+import { InventoryEditPage } from './pages/InventoryEditPage';
 import { Layout } from './components/Layout';
 import { initTelegram } from './utils/telegram';
 import { Spinner } from './components/Spinner';
@@ -23,6 +27,10 @@ function ProtectedShell() {
         <Route path="/orders" element={<OrdersListPage />} />
         <Route path="/orders/new" element={<NewOrderPage />} />
         <Route path="/orders/:id" element={<OrderDetailPage />} />
+        <Route path="/inventory" element={<InventoryListPage />} />
+        <Route path="/inventory/new" element={<InventoryNewPage />} />
+        <Route path="/inventory/:id" element={<InventoryDetailPage />} />
+        <Route path="/inventory/:id/edit" element={<InventoryEditPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

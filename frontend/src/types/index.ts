@@ -140,3 +140,53 @@ export interface AuthResponse {
   accessToken: string;
   user: User;
 }
+
+// ============== СКЛАД ==============
+
+export type StockMovementType = 'IN' | 'OUT' | 'ADJUST';
+
+export interface StockItem {
+  id: string;
+  sku?: string | null;
+  name: string;
+  category?: string | null;
+  unit: string;
+  quantity: string | number;        // Decimal (string)
+  minQuantity?: string | number | null;
+  location?: string | null;
+  notes?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StockMovement {
+  id: string;
+  stockItemId: string;
+  type: StockMovementType;
+  quantity: string | number;
+  balanceAfter: string | number;
+  comment?: string | null;
+  orderId?: string | null;
+  createdAt: string;
+  createdBy?: { id: string; fullName: string; role: UserRole } | null;
+  order?: { id: string; tenderNumber: string; productName: string } | null;
+}
+
+export interface StockItemDetail extends StockItem {
+  movements: StockMovement[];
+}
+
+export interface StockStats {
+  total: number;
+  active: number;
+  inactive: number;
+  lowStockCount: number;
+  lowStockItems: Array<{
+    id: string;
+    name: string;
+    quantity: string | number;
+    minQuantity: string | number;
+    unit: string;
+  }>;
+}

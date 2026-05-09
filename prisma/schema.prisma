@@ -73,6 +73,7 @@ model User {
   statusHistory       OrderStatusHistory[]
   uploadedFiles       OrderFile[]
   notifications       Notification[]
+  stockMovements      StockMovement[]
 
   @@index([role])
   @@index([telegramId])
@@ -137,10 +138,19 @@ model Order {
   productionTasks ProductionTask[]
   files           OrderFile[]
   notifications   Notification[]
+  stockMovements  StockMovement[]
+
+  // STOCK fulfillment: қандай склад бірлігінен қанша алынатыны
+  // (директор STORAGE-ке жібергенде толтырылады, LOADING → LOGISTICS-те шегеріледі)
+  stockItemId     String?
+  stockItem       StockItem?  @relation(fields: [stockItemId], references: [id], onDelete: SetNull)
+  stockQuantity   Decimal?    @db.Decimal(12, 3)
+  stockDeductedAt DateTime?   // қалдық шегерілген сәт (қайта шегеруден қорғау)
 
   @@index([status])
   @@index([deadline])
   @@index([goszakupId])
+  @@index([stockItemId])
 }
 
 // ============== ТАПСЫРЫС МӘРТЕБЕСІНІҢ ТАРИХЫ ==============
@@ -234,20 +244,84 @@ model Notification {
   id          String           @id @default(uuid())
   userId      String
   user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   orderId     String?
   order       Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  
+
   type        NotificationType
   title       String
   message     String
-  
+
   isSent      Boolean          @default(false)
   isRead      Boolean          @default(false)
   sentAt      DateTime?
-  
+
   createdAt   DateTime         @default(now())
 
   @@index([userId, isRead])
   @@index([isSent])
+}
+
+// ============== СКЛАД (ИНВЕНТАРЬ) ==============
+
+// Склад қозғалысының түрі — әр өзгеріс журналға жазылады.
+enum StockMovementType {
+  IN       // приход (поступление, импорт)
+  OUT      // расход (тапсырыс жөнелтілді)
+  ADJUST   // түзету (инвентаризация, қолмен)
+}
+
+// Склад бірлігі — әр сақталатын тауар/шикізат/қаптама.
+// quantity әрдайым StockMovement қозғалыстарының қосындысы — derived, бірақ
+// тез оқу үшін осы өрісте сақталады. Барлық өзгерістер транзакциямен жүреді.
+model StockItem {
+  id           String   @id @default(uuid())
+  sku          String?  @unique             // өнім коды (қажет болса)
+  name         String
+  category     String?                       // "тауар" / "шикізат" / "қаптама" т.б.
+  unit         String   @default("дана")
+
+  // Ағымдағы қалдық. Әр StockMovement осыны атомдық түрде жаңартады.
+  quantity     Decimal  @default(0) @db.Decimal(12, 3)
+  // Төмен қалдық сигналы — UI бұл шектен төмен бірліктерді қызыл етіп көрсетеді.
+  minQuantity  Decimal? @db.Decimal(12, 3)
+
+  location     String?                       // склад сектор: "А1-3"
+  notes        String?
+
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  movements    StockMovement[]
+  orders       Order[]                       // тапсырыстарға байланған бірлік
+
+  @@index([name])
+  @@index([category])
+  @@index([isActive])
+}
+
+// Әр қозғалыс — өзгермейтін журнал жазбасы (audit trail).
+// `quantity` әрдайым оң — белгіні `type` шешеді (IN +, OUT −, ADJUST = жаңа мәнге орнату).
+model StockMovement {
+  id            String            @id @default(uuid())
+  stockItemId   String
+  stockItem     StockItem         @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+
+  type          StockMovementType
+  quantity      Decimal           @db.Decimal(12, 3)   // абсолюттік мән
+  balanceAfter  Decimal           @db.Decimal(12, 3)   // қозғалыстан кейінгі қалдық — audit
+
+  // Қозғалыс белгілі тапсырысқа байланса (мысалы, LOADING-те автоматты шегеру)
+  orderId       String?
+  order         Order?            @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  comment       String?
+  createdById   String?
+  createdBy     User?             @relation(fields: [createdById], references: [id])
+  createdAt     DateTime          @default(now())
+
+  @@index([stockItemId, createdAt])
+  @@index([orderId])
+  @@index([type])
 }

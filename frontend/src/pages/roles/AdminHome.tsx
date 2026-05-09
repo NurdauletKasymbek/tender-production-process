@@ -92,6 +92,10 @@ export function AdminHome() {
           <span aria-hidden>+</span>
           <span>Тапсырыс жасау</span>
         </Link>
+        <Link to="/inventory" className="btn btn--soft btn--block">
+          <span aria-hidden>📦</span>
+          <span>Склад инвентары</span>
+        </Link>
         <button
           className="btn btn--soft btn--block"
           onClick={() => void ordersApi.downloadCsv()}

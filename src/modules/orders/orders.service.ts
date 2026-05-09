@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { OrderStatus, UserRole, Prisma, FulfillmentType } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StockService } from '../stock/stock.service';
 import { CreateOrderDto, ChangeStatusDto } from './dto/order.dto';
 import { canTransition, STATUS_DEFAULT_ROLE } from './order-state-machine';
 
@@ -10,6 +11,7 @@ export class OrdersService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private stock: StockService,
   ) {}
 
   /** Жаңа тапсырыс жасау (қолмен немесе Goszakup-тан) */
@@ -161,6 +163,23 @@ export class OrdersService {
         },
       }),
     ]);
+
+    // LOADING → LOGISTICS: тапсырыс склад бірлігіне байланса, автоматты түрде шегереміз.
+    // Идемпотентті — `stockDeductedAt` бар болса екінші рет шегермейді.
+    if (order.status === OrderStatus.LOADING && nextStatus === OrderStatus.LOGISTICS) {
+      try {
+        await this.stock.deductForOrderShipment(orderId, user.id);
+      } catch (e: any) {
+        // Шегеру мүмкін болмаса (қалдық жетпейді) — статус өтіп қойды,
+        // бірақ бақылау тобын ескертеміз.
+        await this.notifications.notifyControl(
+          'STATUS_CHANGE',
+          `⚠️ Склад шегеру сәтсіз: ${order.tenderNumber}`,
+          `Тапсырыс жолға шықты, бірақ склад қалдығы жаңартылмады:\n${e?.message || e}`,
+          orderId,
+        );
+      }
+    }
 
     // Хабарлама — жауаптыға
     if (newResponsibleId) {

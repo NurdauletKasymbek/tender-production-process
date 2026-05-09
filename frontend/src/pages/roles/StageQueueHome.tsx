@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Header } from '../../components/Header';
 import { OrderCard } from '../../components/OrderCard';
 import { Spinner } from '../../components/Spinner';
@@ -37,6 +38,13 @@ export function StageQueueHome({ stage, title }: Props) {
         <div className="hero-stat__value">{orders.length}</div>
         <div className="hero-stat__hint">{HINT[stage]}</div>
       </div>
+
+      {(stage === 'LOADING' || stage === 'STORAGE') && (
+        <Link to="/inventory" className="btn btn--soft btn--block">
+          <span aria-hidden>📦</span>
+          <span>Склад инвентары</span>
+        </Link>
+      )}
 
       {error && <div className="alert alert--error"><span>⚠️</span><span>{error}</span></div>}
       {loading ? (

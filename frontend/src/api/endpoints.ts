@@ -1,7 +1,8 @@
 import { api } from './client';
 import type {
   AuthResponse, DashboardStats, FileType, FulfillmentType, Notification, Order, OrderFile,
-  OrderStatus, ProductionTask, TaskStatus,
+  OrderStatus, ProductionTask, StockItem, StockItemDetail, StockMovement, StockMovementType,
+  StockStats, TaskStatus,
 } from '../types';
 
 export const authApi = {
@@ -137,6 +138,54 @@ export const filesApi = {
     const base = (api.defaults.baseURL || '/api').replace(/\/$/, '');
     return `${base}/files/${id}${inline ? '?inline=true' : ''}`;
   },
+};
+
+export const stockApi = {
+  list: (params: { search?: string; lowOnly?: boolean; all?: boolean } = {}) =>
+    api.get<StockItem[]>('/stock', {
+      params: {
+        ...(params.search ? { search: params.search } : {}),
+        ...(params.lowOnly ? { lowOnly: 'true' } : {}),
+        ...(params.all ? { all: 'true' } : {}),
+      },
+    }).then((r) => r.data),
+
+  stats: () => api.get<StockStats>('/stock/stats').then((r) => r.data),
+
+  get: (id: string) => api.get<StockItemDetail>(`/stock/${id}`).then((r) => r.data),
+
+  create: (body: {
+    name: string;
+    sku?: string;
+    category?: string;
+    unit?: string;
+    initialQuantity?: number;
+    minQuantity?: number;
+    location?: string;
+    notes?: string;
+  }) => api.post<StockItem>('/stock', body).then((r) => r.data),
+
+  update: (id: string, body: Partial<{
+    name: string;
+    sku: string;
+    category: string;
+    unit: string;
+    minQuantity: number;
+    location: string;
+    notes: string;
+    isActive: boolean;
+  }>) => api.patch<StockItem>(`/stock/${id}`, body).then((r) => r.data),
+
+  remove: (id: string) => api.delete<StockItem>(`/stock/${id}`).then((r) => r.data),
+
+  createMovement: (id: string, body: {
+    type: StockMovementType;
+    quantity: number;
+    comment?: string;
+    orderId?: string;
+  }) => api.post<{ item: StockItem; movement: StockMovement }>(
+    `/stock/${id}/movements`, body,
+  ).then((r) => r.data),
 };
 
 export const notificationsApi = {
