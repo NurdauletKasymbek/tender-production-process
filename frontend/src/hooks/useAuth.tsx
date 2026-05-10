@@ -116,17 +116,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Токен бар болса — нақты қолданушыны API-ден жаңарту (Telegram немесе бұрынғы сессия)
     if (token && token !== 'demo-token') {
       setLoading(true);
-      authApi.me()
-        .then((u) => setUser(u))
-        .catch(() => {
-          // Токен жарамсыз — тазарту
-          tokenStorage.clear();
-          setUser(null);
-          // Telegram болса — қайта кіруге тырысу
-          if (isTelegramApp()) void loginTelegram();
-        })
-        .finally(() => setLoading(false));
-      return;
+      let cancelled = false;
+      const tryMe = async (attempt = 1): Promise<void> => {
+        try {
+          const u = await authApi.me();
+          if (!cancelled) setUser(u);
+        } catch (e: any) {
+          if (cancelled) return;
+          // Шынайы 401 (token expired/invalid) — шығарамыз
+          if (e?.response?.status === 401) {
+            tokenStorage.clear();
+            setUser(null);
+            if (isTelegramApp()) void loginTelegram();
+            return;
+          }
+          // Network error / 5xx — backend deploy кезінде қол жетпеуі мүмкін.
+          // 3 ретке дейін қайтадан тырысамыз (1с, 2с, 4с).
+          if (attempt < 4) {
+            await new Promise((r) => setTimeout(r, attempt * 1000));
+            return tryMe(attempt + 1);
+          }
+          // Барлық тырысулардан кейін де болмаса — токенді ұстаймыз, бірақ
+          // user-ді null қалдырамыз. Кейін бет refresh-те қайталанады.
+        }
+      };
+      void tryMe().finally(() => { if (!cancelled) setLoading(false); });
+      return () => { cancelled = true; };
     }
 
     // Токен жоқ + Telegram → авто-кіру

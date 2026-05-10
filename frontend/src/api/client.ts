@@ -32,8 +32,15 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (r) => r,
   (error: AxiosError<{ message?: string | string[] }>) => {
+    // 401-де токенді ТЕК /auth/me шақыруында ғана тазалаймыз — ол біздің
+    // "ағымдағы тіркелгі әлі жарамды ма?" чегі. Басқа endpoint-те 401 келсе,
+    // ол көбіне жекелеген рұқсат қатесі (мысалы: жоқ файл, бөтен ресурс).
+    // Сондай-ақ deploy кезінде backend бір сәт жауап бермесе токенді ұстап тұрамыз.
     if (error.response?.status === 401) {
-      tokenStorage.clear();
+      const url = error.config?.url || '';
+      if (url.includes('/auth/me')) {
+        tokenStorage.clear();
+      }
     }
     const data = error.response?.data;
     const msg = Array.isArray(data?.message) ? data.message.join(', ') : data?.message;
