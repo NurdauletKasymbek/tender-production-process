@@ -1,4 +1,4 @@
-import { api } from './client';
+import { api, tokenStorage } from './client';
 import type {
   AuthResponse, DashboardStats, FileType, FulfillmentType, Notification, Order, OrderFile,
   OrderStatus, ProductionTask, StockItem, StockItemDetail, StockMovement, StockMovementType,
@@ -140,10 +140,17 @@ export const filesApi = {
 
   remove: (id: string) => api.delete(`/files/${id}`).then((r) => r.data),
 
-  /** URL-ді тікелей <img src> немесе <a href> үшін қолдану */
+  /** URL-ді тікелей <img src> немесе <a href> үшін қолдану.
+   *  Browser тікелей URL-ге кіргенде Authorization header қоспайды,
+   *  сондықтан JWT-ні query string-те жібереміз (`?token=...`). */
   downloadUrl: (id: string, inline = false) => {
     const base = (api.defaults.baseURL || '/api').replace(/\/$/, '');
-    return `${base}/files/${id}${inline ? '?inline=true' : ''}`;
+    const token = tokenStorage.get();
+    const params = new URLSearchParams();
+    if (inline) params.set('inline', 'true');
+    if (token) params.set('token', token);
+    const qs = params.toString();
+    return `${base}/files/${id}${qs ? `?${qs}` : ''}`;
   },
 };
 

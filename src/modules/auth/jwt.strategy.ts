@@ -8,7 +8,13 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(config: ConfigService, private prisma: PrismaService) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      // Token-ды Authorization header-ден де (негізгі), URL query string-тен де
+      // (`?token=...`) қабылдаймыз. Соңғысы — файлды браузерден тікелей ашу үшін:
+      // browser <a href="/api/files/...?token=..."> ашқанда header қоспайды.
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        ExtractJwt.fromUrlQueryParameter('token'),
+      ]),
       secretOrKey: config.get<string>('JWT_SECRET'),
     });
   }
