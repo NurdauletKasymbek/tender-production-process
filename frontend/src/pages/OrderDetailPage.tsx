@@ -57,6 +57,27 @@ const FILE_TYPE_BY_STAGE: Partial<Record<OrderStatus, FileType>> = {
   CLOSED: 'INVOICE',
 };
 
+/** Кезеңнен шығу үшін қандай файл түрі МІНДЕТТІ. Backend де осыны тексереді. */
+const STAGE_REQUIRED_FILE: Partial<Record<OrderStatus, FileType>> = {
+  NEW_TENDER: 'CONTRACT',
+  CONFIRMATION: 'TECHNICAL_SPEC',
+  PRODUCTION: 'PRODUCTION_PHOTO',
+  PACKAGING: 'PACKAGING_PHOTO',
+  LOADING: 'LOADING_PHOTO',
+  DELIVERY: 'DELIVERY_PHOTO',
+};
+
+const FILE_TYPE_LABEL: Record<FileType, string> = {
+  CONTRACT: 'Келісімшарт',
+  TECHNICAL_SPEC: 'Техникалық тапсырма',
+  PRODUCTION_PHOTO: 'Өндіріс фотосы',
+  PACKAGING_PHOTO: 'Қаптау фотосы',
+  LOADING_PHOTO: 'Тиеу фотосы',
+  DELIVERY_PHOTO: 'Жеткізу фотосы',
+  INVOICE: 'Шот-фактура',
+  OTHER: 'Файл',
+};
+
 const ROLE_CAN_REJECT: Record<OrderStatus, string[]> = {
   NEW_TENDER: ['TENDER_DEPARTMENT', 'ADMIN'],
   REVIEW: ['TENDER_DEPARTMENT', 'ADMIN'],
@@ -104,6 +125,13 @@ export function OrderDetailPage() {
   const hasTechSpec = !!order.files?.some(
     (f) => f.fileType === 'TECHNICAL_SPEC' || f.fileType === 'CONTRACT',
   );
+
+  // Кезеңнен шығу үшін қандай файл міндетті, ол жүктелген бе
+  const requiredFileType = STAGE_REQUIRED_FILE[order.status];
+  const hasRequiredFile = !requiredFileType || !!order.files?.some(
+    (f) => f.fileType === requiredFileType,
+  );
+  const advanceBlockedByFile = !!requiredFileType && !hasRequiredFile;
 
   /** Директор CONFIRMATION-да 2 нұсқаны таңдайды: цех немесе склад */
   const isDirectorConfirmation =
@@ -269,6 +297,15 @@ export function OrderDetailPage() {
           </span>
         </div>
       )}
+      {advanceBlockedByFile && requiredFileType && (canAdvance || canReject) && (
+        <div className="alert alert--error" style={{ alignItems: 'center' }}>
+          <span aria-hidden>📎</span>
+          <span>
+            Келесі кезеңге өту үшін <strong>«{FILE_TYPE_LABEL[requiredFileType]}»</strong> жүктеу
+            міндетті. Төменнен файл таңдап жүктеңіз.
+          </span>
+        </div>
+      )}
       <FileGallery
         orderId={order.id}
         suggestedType={FILE_TYPE_BY_STAGE[order.status] || 'OTHER'}
@@ -325,7 +362,7 @@ export function OrderDetailPage() {
               <button
                 className="btn btn--primary btn--lg"
                 onClick={() => void advanceTo('PRODUCTION')}
-                disabled={busy}
+                disabled={busy || advanceBlockedByFile}
               >
                 <span aria-hidden>🏭</span>
                 <span>Өндіріске жіберу (цех)</span>
@@ -333,7 +370,7 @@ export function OrderDetailPage() {
               <button
                 className="btn btn--success btn--lg"
                 onClick={() => void advanceTo('STORAGE')}
-                disabled={busy}
+                disabled={busy || advanceBlockedByFile}
               >
                 <span aria-hidden>📦</span>
                 <span>Складтан алу (қойма → тиеу)</span>
@@ -345,7 +382,11 @@ export function OrderDetailPage() {
             </>
           ) : (
             canAdvance && next && (
-              <button className="btn btn--primary btn--lg" onClick={advance} disabled={busy}>
+              <button
+                className="btn btn--primary btn--lg"
+                onClick={advance}
+                disabled={busy || advanceBlockedByFile}
+              >
                 {nextStepLabel(order.status) || `→ ${STATUS_LABEL[next]}`}
               </button>
             )

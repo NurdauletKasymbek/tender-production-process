@@ -1,4 +1,4 @@
-import { OrderStatus, UserRole } from '@prisma/client';
+import { FileType, OrderStatus, UserRole } from '@prisma/client';
 
 /**
  * Әр кезеңнен қандай кезеңге өтуге болатынын анықтайды.
@@ -71,6 +71,20 @@ export function canTransition(
   }
   return { ok: true };
 }
+
+/**
+ * Тапсырыс ағымдағы кезеңнен ауысу үшін қандай файл түрі міндетті жүктелуі керек.
+ * Жоқ кезеңдер файлсыз да ауыса береді (REVIEW, STORAGE, LOGISTICS).
+ * REJECTED-ке ауысу әрқашан файлсыз да рұқсат.
+ */
+export const STAGE_REQUIRED_FILE: Partial<Record<OrderStatus, FileType>> = {
+  NEW_TENDER: FileType.CONTRACT,
+  CONFIRMATION: FileType.TECHNICAL_SPEC,
+  PRODUCTION: FileType.PRODUCTION_PHOTO,
+  PACKAGING: FileType.PACKAGING_PHOTO,
+  LOADING: FileType.LOADING_PHOTO,
+  DELIVERY: FileType.DELIVERY_PHOTO,
+};
 
 /** Әр кезеңде кім жауапты болуы керек (автоматты тағайындау үшін) */
 export const STATUS_DEFAULT_ROLE: Record<OrderStatus, UserRole | null> = {

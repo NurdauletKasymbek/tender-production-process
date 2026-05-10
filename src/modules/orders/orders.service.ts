@@ -4,7 +4,18 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StockService } from '../stock/stock.service';
 import { CreateOrderDto, ChangeStatusDto, LinkStockDto } from './dto/order.dto';
-import { canTransition, STATUS_DEFAULT_ROLE } from './order-state-machine';
+import { canTransition, STAGE_REQUIRED_FILE, STATUS_DEFAULT_ROLE } from './order-state-machine';
+
+const FILE_TYPE_LABEL_KK: Record<string, string> = {
+  CONTRACT: 'Келісімшарт',
+  TECHNICAL_SPEC: 'Техникалық тапсырма',
+  PRODUCTION_PHOTO: 'Өндіріс фотосы',
+  PACKAGING_PHOTO: 'Қаптау фотосы',
+  LOADING_PHOTO: 'Тиеу фотосы',
+  DELIVERY_PHOTO: 'Жеткізу фотосы',
+  INVOICE: 'Шот-фактура',
+  OTHER: 'Файл',
+};
 
 @Injectable()
 export class OrdersService {
@@ -93,6 +104,23 @@ export class OrdersService {
 
     const check = canTransition(order.status, nextStatus, user.role);
     if (!check.ok) throw new BadRequestException(check.reason);
+
+    // Кезеңге тиісті файл жүктелген бе? (REJECTED-ке өткенде тексермейміз)
+    if (nextStatus !== OrderStatus.REJECTED) {
+      const requiredType = STAGE_REQUIRED_FILE[order.status];
+      if (requiredType) {
+        const hasFile = await this.prisma.orderFile.findFirst({
+          where: { orderId, fileType: requiredType },
+          select: { id: true },
+        });
+        if (!hasFile) {
+          const label = FILE_TYPE_LABEL_KK[requiredType] || 'Файл';
+          throw new BadRequestException(
+            `Келесі кезеңге өту үшін «${label}» жүктеу міндетті`,
+          );
+        }
+      }
+    }
 
     // LOADING → LOGISTICS өту үшін көлік ақпараты міндетті
     if (order.status === OrderStatus.LOADING && nextStatus === OrderStatus.LOGISTICS) {
