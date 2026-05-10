@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Header } from '../../components/Header';
 import { Spinner } from '../../components/Spinner';
 import { OrderCard } from '../../components/OrderCard';
 import { EmptyState } from '../../components/EmptyState';
 import { GoszakupSync } from '../../components/GoszakupSync';
+import { DashboardHeader } from '../../components/DashboardHeader';
+import { BrandCard } from '../../components/BrandCard';
 import { ordersApi } from '../../api/endpoints';
 import type { DashboardStats, Order } from '../../types';
 import { STATUS_COLOR, STATUS_LABEL } from '../../utils/labels';
@@ -36,7 +37,8 @@ export function AdminHome() {
 
   return (
     <div className="page">
-      <Header title="Әкімші панелі" />
+      <DashboardHeader />
+      <BrandCard />
 
       {error && <div className="alert alert--error"><span>⚠️</span><span>{error}</span></div>}
 
