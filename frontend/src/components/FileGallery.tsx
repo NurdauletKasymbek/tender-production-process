@@ -21,9 +21,11 @@ interface Props {
   suggestedType?: FileType;
   /** Жүктеу мүмкіндігі бар-жоғы */
   canUpload?: boolean;
+  /** Файл жүктелгенде/жойылғанда parent-ке хабарлау */
+  onChange?: () => void;
 }
 
-export function FileGallery({ orderId, suggestedType = 'OTHER', canUpload = true }: Props) {
+export function FileGallery({ orderId, suggestedType = 'OTHER', canUpload = true, onChange }: Props) {
   const [files, setFiles] = useState<OrderFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -58,6 +60,7 @@ export function FileGallery({ orderId, suggestedType = 'OTHER', canUpload = true
       await filesApi.upload({ orderId, file, fileType: type });
       hapticNotify('success');
       await reload();
+      onChange?.();
     } catch (err: any) {
       hapticNotify('error');
       setError(err.message || 'Жүктеу қатесі');
@@ -69,8 +72,10 @@ export function FileGallery({ orderId, suggestedType = 'OTHER', canUpload = true
     try {
       await filesApi.remove(id);
       setFiles((p) => p.filter((f) => f.id !== id));
+      onChange?.();
     } catch (e: any) {
-      setError(e.message || 'Жою қатесі');
+      const msg = e?.response?.data?.message || e?.message || 'Жою қатесі';
+      setError(msg);
     }
   };
 
@@ -148,7 +153,11 @@ export function FileGallery({ orderId, suggestedType = 'OTHER', canUpload = true
                 <button
                   type="button"
                   className="file-card__remove"
-                  onClick={() => void remove(f.id)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    void remove(f.id);
+                  }}
                   aria-label="Жою"
                   title="Жою"
                 >

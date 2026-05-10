@@ -310,6 +310,7 @@ export function OrderDetailPage() {
         orderId={order.id}
         suggestedType={FILE_TYPE_BY_STAGE[order.status] || 'OTHER'}
         canUpload={effectiveRole !== 'WORKSHOP_WORKER' || order.status === 'PRODUCTION'}
+        onChange={() => void load()}
       />
 
       {/* ADMIN басқа рөл болып отыр да, ағымдағы кезеңді сол рөл ауыстыра алмайды —

@@ -69,7 +69,10 @@ export class FilesService {
 
   async remove(id: string, user: { id: string; role: UserRole }) {
     const file = await this.findOne(id);
-    if (user.role !== UserRole.ADMIN && file.uploadedById !== user.id) {
+    // ADMIN мен DIRECTOR — кез келген файлды жоя алады (басшылық).
+    // Қалғандары — тек өздері жүктегенін.
+    const canAny = user.role === UserRole.ADMIN || user.role === UserRole.DIRECTOR;
+    if (!canAny && file.uploadedById !== user.id) {
       throw new ForbiddenException('Жою құқығы жоқ');
     }
     const abs = this.resolveDiskPath(file.filePath);
