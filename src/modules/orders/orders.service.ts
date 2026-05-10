@@ -4,7 +4,9 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StockService } from '../stock/stock.service';
 import { CreateOrderDto, ChangeStatusDto, LinkStockDto } from './dto/order.dto';
-import { canTransition, STAGE_REQUIRED_FILE, STATUS_DEFAULT_ROLE } from './order-state-machine';
+import {
+  canTransition, STAGE_REQUIRED_FILE, STATUS_DEFAULT_ROLE, STATUS_LABEL_KK,
+} from './order-state-machine';
 
 const FILE_TYPE_LABEL_KK: Record<string, string> = {
   CONTRACT: 'Келісімшарт',
@@ -218,7 +220,7 @@ export class OrdersService {
         newResponsibleId,
         'STATUS_CHANGE',
         'Жаңа тапсырыс сізге берілді',
-        `Тапсырыс №${order.tenderNumber} — кезең: ${nextStatus}\n` +
+        `Тапсырыс №${order.tenderNumber} — кезең: ${STATUS_LABEL_KK[nextStatus]}\n` +
           `Өнім: ${order.productName}\n` +
           (dto.comment ? `\nЕскертпе: ${dto.comment}` : ''),
         orderId,
@@ -230,7 +232,7 @@ export class OrdersService {
       'STATUS_CHANGE',
       `📊 Кезең ауысты: ${order.tenderNumber}`,
       `«${order.productName}»\n` +
-        `${order.status} → ${nextStatus}\n` +
+        `${STATUS_LABEL_KK[order.status]} → ${STATUS_LABEL_KK[nextStatus]}\n` +
         (dto.comment ? `\nЕскертпе: ${dto.comment}` : ''),
       orderId,
       user.id, // өзіне қайта жібермейміз

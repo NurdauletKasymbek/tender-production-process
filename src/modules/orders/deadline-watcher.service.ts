@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { OrderStatus, NotificationType } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { STATUS_LABEL_KK } from './order-state-machine';
 
 const ACTIVE_STATUSES: OrderStatus[] = [
   'NEW_TENDER', 'REVIEW', 'CONFIRMATION',
@@ -50,7 +51,7 @@ export class DeadlineWatcherService {
         NotificationType.DELAY,
         '🚨 Мерзім бұзылды',
         `Тапсырыс №${order.tenderNumber} мерзімінен ${daysOverdue} күн кешікті.\n` +
-          `Кезең: ${order.status}`,
+          `Кезең: ${STATUS_LABEL_KK[order.status]}`,
         order.id,
       );
     }
@@ -83,7 +84,7 @@ export class DeadlineWatcherService {
         NotificationType.DEADLINE_WARNING,
         '⏰ Мерзім жақындады',
         `Тапсырыс №${order.tenderNumber} — ${daysLeft} күн қалды.\n` +
-          `Кезең: ${order.status}`,
+          `Кезең: ${STATUS_LABEL_KK[order.status]}`,
         order.id,
       );
     }

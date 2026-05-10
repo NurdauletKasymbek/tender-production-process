@@ -86,6 +86,24 @@ export const STAGE_REQUIRED_FILE: Partial<Record<OrderStatus, FileType>> = {
   DELIVERY: FileType.DELIVERY_PHOTO,
 };
 
+/**
+ * Тапсырыс күйлерінің қазақша атаулары — Telegram хабарламалары
+ * мен басқа да адам оқитын жерлерде қолданылады.
+ */
+export const STATUS_LABEL_KK: Record<OrderStatus, string> = {
+  NEW_TENDER: 'Жаңа тендер',
+  REVIEW: 'Тексеру',
+  CONFIRMATION: 'Растау',
+  PRODUCTION: 'Өндіріс',
+  PACKAGING: 'Қаптау',
+  STORAGE: 'Қойма',
+  LOADING: 'Тиеу',
+  LOGISTICS: 'Жолда',
+  DELIVERY: 'Жеткізу',
+  CLOSED: 'Жабылды',
+  REJECTED: 'Қабылданбады',
+};
+
 /** Әр кезеңде кім жауапты болуы керек (автоматты тағайындау үшін) */
 export const STATUS_DEFAULT_ROLE: Record<OrderStatus, UserRole | null> = {
   NEW_TENDER: UserRole.TENDER_DEPARTMENT,
