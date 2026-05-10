@@ -1,13 +1,16 @@
 import {
   BadRequestException,
   Body, Controller, Delete, Get, Injectable, Module,
-  NotFoundException, Param, Patch, Post, UseGuards,
+  NotFoundException, Param, Patch, Post, Res, UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { UserRole } from '@prisma/client';
 import { IsBoolean, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
 import * as bcrypt from 'bcryptjs';
+import axios from 'axios';
+import type { Response } from 'express';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -144,6 +147,59 @@ export class UsersService {
   setActive(id: string, isActive: boolean) {
     return this.prisma.user.update({ where: { id }, data: { isActive } });
   }
+
+  /**
+   * Қолданушының Telegram профиль фотосын Telegram Bot API арқылы алу.
+   * Кэшке қою үшін browser-ге Cache-Control қойылады.
+   * Қолданушыда telegramId жоқ немесе фото табылмаса — null қайтарамыз
+   * (фронтенд fallback көрсетеді).
+   */
+  async getTelegramPhotoStream(
+    id: string,
+    botToken: string,
+  ): Promise<{ stream: NodeJS.ReadableStream; contentType: string } | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { telegramId: true },
+    });
+    if (!user?.telegramId) return null;
+    if (!botToken) return null;
+
+    try {
+      const tgId = user.telegramId.toString();
+      const photosResp = await axios.get(
+        `https://api.telegram.org/bot${botToken}/getUserProfilePhotos`,
+        { params: { user_id: tgId, limit: 1 }, timeout: 5000 },
+      );
+      const photos = photosResp.data?.result?.photos;
+      if (!photos || photos.length === 0) return null;
+
+      // photos[0] — sizes массиві, кішісінен үлкеніне. Орташасын аламыз.
+      const sizes = photos[0];
+      const chosen = sizes[Math.min(1, sizes.length - 1)];
+      const fileId = chosen?.file_id;
+      if (!fileId) return null;
+
+      const fileResp = await axios.get(
+        `https://api.telegram.org/bot${botToken}/getFile`,
+        { params: { file_id: fileId }, timeout: 5000 },
+      );
+      const filePath = fileResp.data?.result?.file_path;
+      if (!filePath) return null;
+
+      const fileStream = await axios.get(
+        `https://api.telegram.org/file/bot${botToken}/${filePath}`,
+        { responseType: 'stream', timeout: 10000 },
+      );
+      const ct = fileStream.headers['content-type'];
+      return {
+        stream: fileStream.data,
+        contentType: typeof ct === 'string' ? ct : 'image/jpeg',
+      };
+    } catch {
+      return null;
+    }
+  }
 }
 
 @ApiTags('Қолданушылар')
@@ -151,7 +207,24 @@ export class UsersService {
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('users')
 export class UsersController {
-  constructor(private users: UsersService) {}
+  constructor(
+    private users: UsersService,
+    private config: ConfigService,
+  ) {}
+
+  @Get(':id/photo')
+  @ApiOperation({ summary: 'Қолданушының Telegram профиль фотосын алу' })
+  async getPhoto(@Param('id') id: string, @Res() res: Response) {
+    const botToken = this.config.get<string>('TELEGRAM_BOT_TOKEN') || '';
+    const result = await this.users.getTelegramPhotoStream(id, botToken);
+    if (!result) {
+      // Frontend сурет жоқ дегенді біледі — initials fallback көрсетеді.
+      return res.status(404).json({ message: 'Фото табылмады' });
+    }
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    result.stream.pipe(res);
+  }
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.DIRECTOR)

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../hooks/useTheme';
 import { notificationsApi } from '../api/endpoints';
+import { api, tokenStorage } from '../api/client';
 
 const KZ_DAYS_SHORT = ['Жс', 'Дс', 'Сс', 'Ср', 'Бс', 'Жм', 'Сб'];
 const KZ_MONTHS = [
@@ -30,14 +32,16 @@ function initialsOf(name?: string) {
 
 /**
  * Қызметкердің басты бетінің жоғарғы блогы:
- *   аватар (инициалдар) + үлкен сағат/күні + 3 дөңгелек әрекет батырмасы.
- * Telegram bot стилінде.
+ *   аватар (Telegram фотосы немесе инициалдар) + сағат/күні +
+ *   3 дөңгелек: хабарлама / тапсырыстар / тақырып ауыстырғыш.
  */
 export function DashboardHeader() {
   const { user } = useAuth();
   const nav = useNavigate();
+  const { theme, toggle: toggleTheme } = useTheme();
   const [now, setNow] = useState(new Date());
   const [unread, setUnread] = useState(0);
+  const [photoFailed, setPhotoFailed] = useState(false);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -50,10 +54,29 @@ export function DashboardHeader() {
       .catch(() => {});
   }, []);
 
+  // Telegram фотосының URL-і — JWT-ні query string-те жібереміз
+  const photoUrl = user
+    ? (() => {
+        const base = (api.defaults.baseURL || '/api').replace(/\/$/, '');
+        const t = tokenStorage.get();
+        return `${base}/users/${user.id}/photo${t ? `?token=${encodeURIComponent(t)}` : ''}`;
+      })()
+    : null;
+
+  const showInitials = !photoUrl || photoFailed;
+
   return (
     <div className="dash-header">
       <div className="dash-header__avatar" aria-hidden>
-        <span>{initialsOf(user?.fullName)}</span>
+        {showInitials ? (
+          <span>{initialsOf(user?.fullName)}</span>
+        ) : (
+          <img
+            src={photoUrl!}
+            alt={user?.fullName || ''}
+            onError={() => setPhotoFailed(true)}
+          />
+        )}
       </div>
 
       <div className="dash-header__clock">
@@ -81,10 +104,10 @@ export function DashboardHeader() {
         <button
           type="button"
           className="dash-circle"
-          aria-label="Профиль"
-          onClick={() => nav('/profile')}
+          aria-label={theme === 'dark' ? 'Жарық тема' : 'Қараңғы тема'}
+          onClick={toggleTheme}
         >
-          <SettingsIcon />
+          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
         </button>
       </div>
     </div>
@@ -106,12 +129,22 @@ function ChartIcon() {
     </svg>
   );
 }
-function SettingsIcon() {
+function MoonIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" fill="currentColor"/>
+    </svg>
+  );
+}
+function SunIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="4" fill="currentColor"/>
       <path
-        d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm9.4 4 1.7 1.4-1.6 2.7-2.1-.5a8.6 8.6 0 0 1-1.6 1l-.4 2.2h-3.2l-.4-2.2a8.6 8.6 0 0 1-1.6-1l-2.1.5-1.6-2.7L8.6 12l-1.7-1.4 1.6-2.7 2.1.5c.5-.4 1-.7 1.6-1l.4-2.2h3.2l.4 2.2c.6.3 1.1.6 1.6 1l2.1-.5 1.6 2.7L21.4 12Z"
-        fill="currentColor"
+        d="M12 2v2m0 16v2m10-10h-2M4 12H2m15.07-7.07-1.42 1.42M6.34 17.66l-1.41 1.41m12.73 0-1.41-1.41M6.34 6.34 4.93 4.93"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
       />
     </svg>
   );
