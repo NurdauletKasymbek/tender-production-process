@@ -1,14 +1,14 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { messagesApi } from '../api/endpoints';
-import type { OrderFile, OrderMessage } from '../types';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { filesApi, messagesApi } from '../api/endpoints';
+import type { OrderMessage } from '../types';
 import { ROLE_LABEL, STATUS_LABEL } from '../utils/labels';
 import { useAuth } from '../hooks/useAuth';
 import { hapticImpact, hapticNotify } from '../utils/telegram';
 
 interface Props {
   orderId: string;
-  /** Тапсырыс файлдары — хабарламаға тіркеу үшін таңдау тізімі */
-  files?: OrderFile[];
+  /** Тапсырыстағы соңғы өзгерістерден кейін parent-ке хабар беру */
+  onUpdated?: () => void;
 }
 
 function fmtTime(s: string) {
@@ -26,23 +26,35 @@ function fmtTime(s: string) {
   });
 }
 
+const isImage = (mime?: string | null) => !!mime && mime.startsWith('image/');
+
 /**
- * Тапсырыс бойынша кезеңаралық чат.
- * Әр кезеңде кез келген жауапты мәтін + (қажет болса) бар файлдың сілтемесін
- * қалдыра алады. Хабарлама барлық қатысушыларға Telegram-ға келеді.
+ * Тапсырыс бойынша Telegram сияқты қарапайым чат.
+ *   - 📎 батырмамен файл (фото/PDF) тікелей жүктеу
+ *   - Жай мәтін немесе мәтін+файл (немесе тек файл) жіберу
+ *   - Сурет — bubble ішінде кішкене thumbnail, басылса жаңа tab-та ашылады
+ *   - Хабарлама жіберілгенде бар қатысушылар Telegram-нан ескерту алады
  */
-export function OrderMessages({ orderId, files = [] }: Props) {
+export function OrderMessages({ orderId, onUpdated }: Props) {
   const { user } = useAuth();
   const [items, setItems] = useState<OrderMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [text, setText] = useState('');
-  const [attachedFileId, setAttachedFileId] = useState<string | ''>('');
+  const [pendingFile, setPendingFile] = useState<{
+    id: string;
+    name: string;
+    mimeType: string;
+  } | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const listEndRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     try {
-      setItems(await messagesApi.list(orderId));
+      const list = await messagesApi.list(orderId);
+      setItems(list);
       setError(null);
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || 'Жүктеу қатесі');
@@ -53,24 +65,61 @@ export function OrderMessages({ orderId, files = [] }: Props) {
 
   useEffect(() => { void load(); }, [load]);
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!text.trim()) return;
+  // Жаңа хабарлама келсе төменге айналдыру
+  useEffect(() => {
+    listEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [items.length]);
+
+  const pickFile = () => fileInputRef.current?.click();
+
+  const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    setUploading(true);
+    setError(null);
+    try {
+      hapticImpact('light');
+      const uploaded = await filesApi.upload({
+        orderId,
+        file: f,
+        fileType: 'OTHER', // чаттан жүктелген файл — еркін
+      });
+      setPendingFile({
+        id: uploaded.id,
+        name: uploaded.fileName,
+        mimeType: uploaded.mimeType,
+      });
+      onUpdated?.(); // parent-ке файл саны өзгергенін айту
+    } catch (err: any) {
+      setError(err?.response?.data?.message || err?.message || 'Файл жүктеу қатесі');
+      hapticNotify('error');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const clearPending = () => setPendingFile(null);
+
+  const submit = async (e?: FormEvent) => {
+    e?.preventDefault();
+    const t = text.trim();
+    if (!t && !pendingFile) return;
     setBusy(true);
     setError(null);
     try {
       hapticImpact('light');
       await messagesApi.create(orderId, {
-        text: text.trim(),
-        fileId: attachedFileId || undefined,
+        text: t,
+        fileId: pendingFile?.id,
       });
       hapticNotify('success');
       setText('');
-      setAttachedFileId('');
+      setPendingFile(null);
       await load();
-    } catch (e: any) {
+    } catch (err: any) {
       hapticNotify('error');
-      setError(e?.response?.data?.message || e?.message || 'Жіберу қатесі');
+      setError(err?.response?.data?.message || err?.message || 'Жіберу қатесі');
     } finally {
       setBusy(false);
     }
@@ -90,6 +139,8 @@ export function OrderMessages({ orderId, files = [] }: Props) {
         <div className="msg-list">
           {items.map((m) => {
             const own = m.author.id === user?.id;
+            const fileUrl = m.file ? filesApi.downloadUrl(m.file.id, true) : null;
+            const showImage = m.file && isImage(m.file.mimeType) && fileUrl;
             return (
               <div
                 key={m.id}
@@ -100,59 +151,124 @@ export function OrderMessages({ orderId, files = [] }: Props) {
                     <strong>{m.author.fullName}</strong>
                     <span className="muted"> · {ROLE_LABEL[m.author.role]}</span>
                   </div>
-                  <div className="msg-bubble__body">{m.text}</div>
+                  {m.text && <div className="msg-bubble__body">{m.text}</div>}
                   {m.file && (
-                    <div className="msg-bubble__file">
-                      📎 {m.file.fileName}
-                    </div>
+                    showImage ? (
+                      <a
+                        href={fileUrl!}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="msg-bubble__img"
+                      >
+                        <img src={fileUrl!} alt={m.file.fileName} loading="lazy" />
+                      </a>
+                    ) : (
+                      <a
+                        href={fileUrl!}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="msg-bubble__file"
+                      >
+                        📎 {m.file.fileName}
+                      </a>
+                    )
                   )}
                   <div className="msg-bubble__meta">
-                    {STATUS_LABEL[m.stage]} кезеңі · {fmtTime(m.createdAt)}
+                    {STATUS_LABEL[m.stage]} · {fmtTime(m.createdAt)}
                   </div>
                 </div>
               </div>
             );
           })}
+          <div ref={listEndRef} />
+        </div>
+      )}
+
+      {pendingFile && (
+        <div className="msg-pending">
+          {isImage(pendingFile.mimeType) ? (
+            <span aria-hidden>🖼️</span>
+          ) : (
+            <span aria-hidden>📄</span>
+          )}
+          <span className="msg-pending__name">{pendingFile.name}</span>
+          <button
+            type="button"
+            className="msg-pending__remove"
+            onClick={clearPending}
+            aria-label="Файлды алып тастау"
+          >
+            ×
+          </button>
         </div>
       )}
 
       <form className="msg-form" onSubmit={submit}>
-        {files.length > 0 && (
-          <label className="field" style={{ marginBottom: 8 }}>
-            <span className="field__label">📎 Файл тіркеу (қажет болса)</span>
-            <select
-              className="input"
-              value={attachedFileId}
-              onChange={(e) => setAttachedFileId(e.target.value)}
-            >
-              <option value="">— тіркемеу —</option>
-              {files.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.fileName}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
         <div className="msg-form__row">
+          <button
+            type="button"
+            className="msg-attach"
+            onClick={pickFile}
+            disabled={busy || uploading}
+            aria-label="Файл тіркеу"
+            title="Фото немесе PDF тіркеу"
+          >
+            {uploading ? '...' : <ClipIcon />}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,application/pdf"
+            style={{ display: 'none' }}
+            onChange={onPickFile}
+          />
           <textarea
-            className="input"
-            rows={2}
+            className="input msg-textarea"
+            rows={1}
             placeholder="Хабарлама жазу..."
             value={text}
             onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                void submit();
+              }
+            }}
             disabled={busy}
             maxLength={2000}
           />
           <button
             type="submit"
-            className="btn btn--primary"
-            disabled={busy || !text.trim()}
+            className="msg-send"
+            disabled={busy || (!text.trim() && !pendingFile)}
+            aria-label="Жіберу"
           >
-            {busy ? '...' : 'Жіберу'}
+            {busy ? '...' : <SendIcon />}
           </button>
         </div>
       </form>
     </div>
+  );
+}
+
+function ClipIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l8.57-8.57a4 4 0 1 1 5.66 5.66L9.41 17.41a2 2 0 1 1-2.83-2.83l7.07-7.07"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
+  );
+}
+function SendIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path d="M2 12 22 2l-7 20-3-9-10-1Z" fill="currentColor"/>
+    </svg>
   );
 }

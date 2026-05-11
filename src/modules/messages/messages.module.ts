@@ -5,13 +5,15 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { NotificationType, UserRole } from '@prisma/client';
-import { IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { NotificationsService } from '../notifications/notifications.service';
 
 class CreateMessageDto {
-  @IsString() @MinLength(1) @MaxLength(2000) text: string;
+  // Мәтін немесе файл — кем дегенде біреуі болуы керек
+  // (валидация service.create ішінде)
+  @IsOptional() @IsString() @MaxLength(2000) text?: string;
   @IsOptional() @IsUUID() fileId?: string;
 }
 
@@ -44,6 +46,11 @@ export class MessagesService {
     });
     if (!order) throw new NotFoundException('Тапсырыс табылмады');
 
+    const text = (dto.text || '').trim();
+    if (!text && !dto.fileId) {
+      throw new NotFoundException('Мәтін немесе файл қажет');
+    }
+
     // Файл сілтемесі болса — ол шынымен осы тапсырысқа тиесілі ме тексереміз
     if (dto.fileId) {
       const file = await this.prisma.orderFile.findUnique({
@@ -59,7 +66,7 @@ export class MessagesService {
       data: {
         orderId,
         authorId: userId,
-        text: dto.text.trim(),
+        text,
         fileId: dto.fileId || null,
         stage: order.status,
       },
@@ -74,10 +81,12 @@ export class MessagesService {
     // Хабарламаны барлық қатысушыларға (ADMIN + DIRECTOR + ағымдағы кезең жауаптысы)
     // жібереміз, бірақ авторға өзіне жібермейміз.
     const author = msg.author;
-    const previewText = msg.text.length > 100 ? msg.text.slice(0, 97) + '...' : msg.text;
+    const previewText = msg.text
+      ? (msg.text.length > 200 ? msg.text.slice(0, 197) + '...' : msg.text)
+      : '(тек файл жіберілді)';
     const title = `💬 ${order.tenderNumber}: ${author.fullName}`;
     const body =
-      `«${order.productName}»\n` +
+      `«${order.productName}»\n\n` +
       `${previewText}` +
       (msg.file ? `\n\n📎 ${msg.file.fileName}` : '');
 

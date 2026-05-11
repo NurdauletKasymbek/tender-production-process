@@ -1624,33 +1624,110 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .msg-bubble__file {
   margin-top: 6px;
   font-size: 12px;
-  padding: 4px 8px;
+  padding: 6px 10px;
   background: var(--surface-2);
-  border-radius: 6px;
+  border-radius: 8px;
   display: inline-block;
+  text-decoration: none;
+  color: var(--tg-text);
+  border: 1px solid var(--divider);
+}
+.msg-bubble__file:hover {
+  background: var(--divider);
+}
+.msg-bubble__img {
+  display: block;
+  margin-top: 6px;
+  max-width: 220px;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: zoom-in;
+  background: var(--surface-2);
+}
+.msg-bubble__img img {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
 }
 .msg-bubble__meta {
   margin-top: 4px;
   font-size: 11px;
   color: var(--tg-hint);
 }
+
+.msg-pending {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-2);
+  border: 1px dashed var(--divider-strong);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.msg-pending__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.msg-pending__remove {
+  background: transparent;
+  border: 0;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--tg-hint);
+  cursor: pointer;
+  padding: 0 4px;
+}
+.msg-pending__remove:hover { color: var(--danger); }
+
 .msg-form {
   background: var(--surface);
   border: 1px solid var(--divider);
-  border-radius: 12px;
-  padding: 10px;
+  border-radius: 14px;
+  padding: 6px;
 }
 .msg-form__row {
   display: flex;
-  gap: 8px;
-  align-items: stretch;
+  gap: 6px;
+  align-items: flex-end;
 }
-.msg-form__row textarea {
-  flex: 1;
-  resize: vertical;
-  min-height: 44px;
-}
-.msg-form__row .btn {
-  align-self: flex-end;
+.msg-attach,
+.msg-send {
   flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  color: var(--tg-text);
+  border: 0;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+.msg-attach:hover,
+.msg-send:hover { background: var(--divider); }
+.msg-attach:active,
+.msg-send:active { transform: scale(0.94); }
+.msg-attach:disabled,
+.msg-send:disabled { opacity: 0.5; cursor: not-allowed; }
+.msg-send {
+  background: var(--brand-500);
+  color: #fff;
+}
+.msg-send:hover { background: var(--brand-600); }
+.msg-send:disabled { background: var(--surface-2); color: var(--tg-hint); }
+
+.msg-textarea {
+  flex: 1;
+  resize: none;
+  min-height: 40px;
+  max-height: 160px;
+  border-radius: 14px;
+  padding: 9px 14px;
+  line-height: 1.4;
 }

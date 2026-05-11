@@ -315,7 +315,7 @@ export function OrderDetailPage() {
       />
 
       <h3 className="section-title">💬 Кезеңаралық чат</h3>
-      <OrderMessages orderId={order.id} files={order.files} />
+      <OrderMessages orderId={order.id} onUpdated={() => void load()} />
 
       {/* ADMIN басқа рөл болып отыр да, ағымдағы кезеңді сол рөл ауыстыра алмайды —
           бір батырмамен дұрыс рөлге ауыстыруды ұсынамыз. */}
