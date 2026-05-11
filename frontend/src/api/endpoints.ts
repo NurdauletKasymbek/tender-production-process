@@ -273,6 +273,9 @@ export const messagesApi = {
 
   create: (orderId: string, body: { text: string; fileId?: string }) =>
     api.post<OrderMessage>(`/orders/${orderId}/messages`, body).then((r) => r.data),
+
+  remove: (orderId: string, messageId: string) =>
+    api.delete<{ ok: boolean }>(`/orders/${orderId}/messages/${messageId}`).then((r) => r.data),
 };
 
 export const notificationsApi = {

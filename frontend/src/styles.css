@@ -1601,17 +1601,32 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   justify-content: flex-end;
 }
 .msg-bubble {
+  position: relative;
   max-width: 82%;
   background: var(--surface);
   border: 1px solid var(--divider);
-  border-radius: 12px;
+  color: var(--tg-text);
+  border-radius: 14px;
   padding: 8px 12px;
   font-size: 14px;
   word-wrap: break-word;
 }
 .msg-row--own .msg-bubble {
-  background: var(--brand-50);
-  border-color: var(--brand-100);
+  background: var(--brand-500);
+  border-color: var(--brand-500);
+  color: #fff;
+}
+.msg-row--own .msg-bubble .muted,
+.msg-row--own .msg-bubble .msg-bubble__meta {
+  color: rgba(255, 255, 255, 0.78);
+}
+.msg-row--own .msg-bubble__file {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.msg-row--own .msg-bubble__file:hover {
+  background: rgba(255, 255, 255, 0.28);
 }
 .msg-bubble__head {
   font-size: 12px;
@@ -1619,7 +1634,35 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 .msg-bubble__body {
   white-space: pre-wrap;
-  line-height: 1.4;
+  line-height: 1.45;
+}
+.msg-bubble__delete {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.85);
+  color: #fff;
+  border: 1.5px solid var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.55;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.msg-bubble__delete:hover {
+  opacity: 1;
+  transform: scale(1.08);
+}
+.msg-bubble:hover .msg-bubble__delete { opacity: 1; }
+.msg-row--own .msg-bubble__delete {
+  border-color: var(--brand-500);
 }
 .msg-bubble__file {
   margin-top: 6px;

@@ -3,7 +3,7 @@ import { filesApi, messagesApi } from '../api/endpoints';
 import type { OrderMessage } from '../types';
 import { ROLE_LABEL, STATUS_LABEL } from '../utils/labels';
 import { useAuth } from '../hooks/useAuth';
-import { hapticImpact, hapticNotify } from '../utils/telegram';
+import { hapticImpact, hapticNotify, showConfirm } from '../utils/telegram';
 
 interface Props {
   orderId: string;
@@ -101,6 +101,19 @@ export function OrderMessages({ orderId, onUpdated }: Props) {
 
   const clearPending = () => setPendingFile(null);
 
+  const remove = async (msgId: string) => {
+    const ok = await showConfirm('Хабарламаны жоямыз ба?');
+    if (!ok) return;
+    try {
+      await messagesApi.remove(orderId, msgId);
+      hapticNotify('success');
+      setItems((p) => p.filter((m) => m.id !== msgId));
+    } catch (err: any) {
+      setError(err?.response?.data?.message || err?.message || 'Жою қатесі');
+      hapticNotify('error');
+    }
+  };
+
   const submit = async (e?: FormEvent) => {
     e?.preventDefault();
     const t = text.trim();
@@ -139,6 +152,8 @@ export function OrderMessages({ orderId, onUpdated }: Props) {
         <div className="msg-list">
           {items.map((m) => {
             const own = m.author.id === user?.id;
+            const isAdminOrDirector = user?.role === 'ADMIN' || user?.role === 'DIRECTOR';
+            const canDelete = own || isAdminOrDirector;
             const fileUrl = m.file ? filesApi.downloadUrl(m.file.id, true) : null;
             const showImage = m.file && isImage(m.file.mimeType) && fileUrl;
             return (
@@ -147,8 +162,19 @@ export function OrderMessages({ orderId, onUpdated }: Props) {
                 className={`msg-row ${own ? 'msg-row--own' : ''}`}
               >
                 <div className="msg-bubble">
+                  {canDelete && (
+                    <button
+                      type="button"
+                      className="msg-bubble__delete"
+                      onClick={() => void remove(m.id)}
+                      aria-label="Хабарламаны жою"
+                      title="Жою"
+                    >
+                      ×
+                    </button>
+                  )}
                   <div className="msg-bubble__head">
-                    <strong>{m.author.fullName}</strong>
+                    <strong>{own ? 'Сіз' : m.author.fullName}</strong>
                     <span className="muted"> · {ROLE_LABEL[m.author.role]}</span>
                   </div>
                   {m.text && <div className="msg-bubble__body">{m.text}</div>}

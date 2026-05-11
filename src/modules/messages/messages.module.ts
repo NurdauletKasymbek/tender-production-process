@@ -1,6 +1,6 @@
 import {
-  Body, Controller, Get, Injectable, Module, NotFoundException, Param,
-  Post, Req, UseGuards,
+  Body, Controller, Delete, ForbiddenException, Get, Injectable, Module,
+  NotFoundException, Param, Post, Req, UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -101,6 +101,30 @@ export class MessagesService {
   }
 
   /**
+   * Хабарламаны жою.
+   * - Авторы немесе ADMIN/DIRECTOR жоя алады
+   */
+  async remove(
+    orderId: string,
+    messageId: string,
+    user: { id: string; role: UserRole },
+  ) {
+    const msg = await this.prisma.orderMessage.findUnique({
+      where: { id: messageId },
+      select: { id: true, authorId: true, orderId: true },
+    });
+    if (!msg || msg.orderId !== orderId) {
+      throw new NotFoundException('Хабарлама табылмады');
+    }
+    const canAny = user.role === UserRole.ADMIN || user.role === UserRole.DIRECTOR;
+    if (!canAny && msg.authorId !== user.id) {
+      throw new ForbiddenException('Жою құқығы жоқ');
+    }
+    await this.prisma.orderMessage.delete({ where: { id: messageId } });
+    return { ok: true };
+  }
+
+  /**
    * Тапсырысқа қатысы бар адамдарға (жауапты + ADMIN + DIRECTOR) хабарлама жібереді.
    * Авторға өзіне жібермейді.
    */
@@ -163,6 +187,16 @@ export class MessagesController {
     @Req() req: any,
   ) {
     return this.messages.create(orderId, dto, req.user.id);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Хабарламаны жою (авторы немесе ADMIN/DIRECTOR)' })
+  remove(
+    @Param('orderId') orderId: string,
+    @Param('id') id: string,
+    @Req() req: any,
+  ) {
+    return this.messages.remove(orderId, id, req.user);
   }
 }
 
