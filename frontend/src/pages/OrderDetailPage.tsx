@@ -8,6 +8,7 @@ import { TaskCard } from '../components/TaskCard';
 import { FileGallery } from '../components/FileGallery';
 import { TransportInfoForm } from '../components/TransportInfoForm';
 import { StockBinding } from '../components/StockBinding';
+import { OrderMessages } from '../components/OrderMessages';
 import { ordersApi, productionApi } from '../api/endpoints';
 import { useAuth } from '../hooks/useAuth';
 import type { FileType, FulfillmentType, Order, OrderStatus, UserRole } from '../types';
@@ -312,6 +313,9 @@ export function OrderDetailPage() {
         canUpload={effectiveRole !== 'WORKSHOP_WORKER' || order.status === 'PRODUCTION'}
         onChange={() => void load()}
       />
+
+      <h3 className="section-title">💬 Кезеңаралық чат</h3>
+      <OrderMessages orderId={order.id} files={order.files} />
 
       {/* ADMIN басқа рөл болып отыр да, ағымдағы кезеңді сол рөл ауыстыра алмайды —
           бір батырмамен дұрыс рөлге ауыстыруды ұсынамыз. */}

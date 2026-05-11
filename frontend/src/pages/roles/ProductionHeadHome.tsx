@@ -1,4 +1,5 @@
-import { Header } from '../../components/Header';
+import { DashboardHeader } from '../../components/DashboardHeader';
+import { BrandCard } from '../../components/BrandCard';
 import { OrderCard } from '../../components/OrderCard';
 import { Spinner } from '../../components/Spinner';
 import { EmptyState } from '../../components/EmptyState';
@@ -9,7 +10,8 @@ export function ProductionHeadHome() {
 
   return (
     <div className="page">
-      <Header title="Өндіріс бастығы" />
+      <DashboardHeader />
+      <BrandCard />
 
       <div className="hero-stat">
         <div className="hero-stat__label">Өндірісте</div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Header } from '../../components/Header';
+import { DashboardHeader } from '../../components/DashboardHeader';
+import { BrandCard } from '../../components/BrandCard';
 import { Spinner } from '../../components/Spinner';
 import { OrderCard } from '../../components/OrderCard';
 import { EmptyState } from '../../components/EmptyState';
@@ -46,7 +47,8 @@ export function DirectorHome() {
 
   return (
     <div className="page">
-      <Header title="Басшылық дашборды" />
+      <DashboardHeader />
+      <BrandCard />
 
       {error && <div className="alert alert--error"><span>⚠️</span><span>{error}</span></div>}
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Header } from '../../components/Header';
+import { DashboardHeader } from '../../components/DashboardHeader';
+import { BrandCard } from '../../components/BrandCard';
 import { Spinner } from '../../components/Spinner';
 import { EmptyState } from '../../components/EmptyState';
 import { TaskCard } from '../../components/TaskCard';
@@ -43,7 +44,8 @@ export function WorkshopHome() {
 
   return (
     <div className="page">
-      <Header title="Менің тапсырмаларым" />
+      <DashboardHeader />
+      <BrandCard />
 
       {!loading && tasks.length > 0 && (
         <div className="stat-grid stat-grid--3">

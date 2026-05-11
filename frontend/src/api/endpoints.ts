@@ -1,8 +1,8 @@
 import { api, tokenStorage } from './client';
 import type {
   AuthResponse, DashboardStats, FileType, FulfillmentType, Notification, Order, OrderFile,
-  OrderStatus, ProductionTask, StockItem, StockItemDetail, StockMovement, StockMovementType,
-  StockStats, TaskStatus,
+  OrderMessage, OrderStatus, ProductionTask, StockItem, StockItemDetail, StockMovement,
+  StockMovementType, StockStats, TaskStatus,
 } from '../types';
 
 export const authApi = {
@@ -265,6 +265,14 @@ export const stockApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then((r) => r.data);
   },
+};
+
+export const messagesApi = {
+  list: (orderId: string) =>
+    api.get<OrderMessage[]>(`/orders/${orderId}/messages`).then((r) => r.data),
+
+  create: (orderId: string, body: { text: string; fileId?: string }) =>
+    api.post<OrderMessage>(`/orders/${orderId}/messages`, body).then((r) => r.data),
 };
 
 export const notificationsApi = {

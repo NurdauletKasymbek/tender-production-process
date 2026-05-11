@@ -191,6 +191,22 @@ export interface StockItemDetail extends StockItem {
   movements: StockMovement[];
 }
 
+export interface OrderMessage {
+  id: string;
+  orderId: string;
+  text: string;
+  stage: OrderStatus;
+  createdAt: string;
+  author: { id: string; fullName: string; role: UserRole };
+  fileId: string | null;
+  file: {
+    id: string;
+    fileName: string;
+    fileType: FileType;
+    mimeType: string;
+  } | null;
+}
+
 export interface StockStats {
   total: number;
   active: number;

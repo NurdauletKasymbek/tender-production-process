@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Header } from '../../components/Header';
+import { DashboardHeader } from '../../components/DashboardHeader';
+import { BrandCard } from '../../components/BrandCard';
 import { OrderCard } from '../../components/OrderCard';
 import { Spinner } from '../../components/Spinner';
 import { EmptyState } from '../../components/EmptyState';
@@ -21,7 +22,8 @@ export function TenderDepartmentHome() {
 
   return (
     <div className="page">
-      <Header title="Тендерлік бөлім" />
+      <DashboardHeader />
+      <BrandCard />
 
       <GoszakupSync onSynced={() => void reload()} />
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Header } from '../../components/Header';
+import { DashboardHeader } from '../../components/DashboardHeader';
+import { BrandCard } from '../../components/BrandCard';
 import { OrderCard } from '../../components/OrderCard';
 import { Spinner } from '../../components/Spinner';
 import { EmptyState } from '../../components/EmptyState';
@@ -17,7 +18,8 @@ export function LogisticsHome() {
 
   return (
     <div className="page">
-      <Header title="Логистика" />
+      <DashboardHeader />
+      <BrandCard />
 
       <div className="tabs">
         {TABS.map((t) => (

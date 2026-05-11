@@ -79,6 +79,7 @@ model User {
   uploadedFiles       OrderFile[]
   notifications       Notification[]
   stockMovements      StockMovement[]
+  messages            OrderMessage[]
 
   @@index([role])
   @@index([telegramId])
@@ -144,6 +145,7 @@ model Order {
   files           OrderFile[]
   notifications   Notification[]
   stockMovements  StockMovement[]
+  messages        OrderMessage[]
 
   // STOCK fulfillment: қандай склад бірлігінен қанша алынатыны
   // (директор STORAGE-ке жібергенде толтырылады, LOADING → LOGISTICS-те шегеріледі)
@@ -220,19 +222,46 @@ model OrderFile {
   id          String   @id @default(uuid())
   orderId     String
   order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  
+
   fileName    String
   fileType    FileType
   filePath    String   // серверде сақталған жол
   mimeType    String
   sizeBytes   Int
-  
+
   uploadedById String
   uploadedBy   User    @relation(fields: [uploadedById], references: [id])
-  
+
   createdAt   DateTime @default(now())
 
+  messages    OrderMessage[] // осы файлға қоса жіберілген хабарламалар
+
   @@index([orderId])
+}
+
+// ============== КЕЗЕҢАРАЛЫҚ ХАБАРЛАМАЛАР ==============
+// Әр кезеңде жауаптылар тапсырыс бойынша бір-біріне жазбаша
+// хабарлама + файл жібере алады (қате, түсіндіру, растау).
+model OrderMessage {
+  id          String       @id @default(uuid())
+  orderId     String
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  authorId    String
+  author      User         @relation(fields: [authorId], references: [id])
+
+  text        String       @db.Text
+
+  // Қажет болса — бар OrderFile-ды тіркейміз (қайта жүктемей).
+  fileId      String?
+  file        OrderFile?   @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  // Бұл хабарлама қай кезеңде жіберілді (тарих үшін).
+  stage       OrderStatus
+
+  createdAt   DateTime     @default(now())
+
+  @@index([orderId, createdAt])
 }
 
 // ============== ХАБАРЛАМАЛАР (Telegram) ==============
