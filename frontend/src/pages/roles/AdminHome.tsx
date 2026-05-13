@@ -5,6 +5,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { GoszakupSync } from '../../components/GoszakupSync';
 import { DashboardHeader } from '../../components/DashboardHeader';
 import { BrandCard } from '../../components/BrandCard';
+import { ActivityFeed } from '../../components/ActivityFeed';
 import { ordersApi } from '../../api/endpoints';
 import type { DashboardStats, Order } from '../../types';
 import { STATUS_COLOR, STATUS_LABEL } from '../../utils/labels';
@@ -110,6 +111,9 @@ export function AdminHome() {
           <span>Excel-ге экспорттау (CSV)</span>
         </button>
       </div>
+
+      <h3 className="section-title">⚡ Соңғы әрекеттер</h3>
+      <ActivityFeed limit={10} />
 
       <h3 className="section-title">Соңғы тапсырыстар</h3>
 

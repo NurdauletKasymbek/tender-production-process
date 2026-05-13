@@ -1,7 +1,7 @@
 import {
   BadRequestException,
   Body, Controller, Delete, Get, Injectable, Module,
-  NotFoundException, Param, Patch, Post, Res, UseGuards,
+  NotFoundException, Param, Patch, Post, Req, Res, UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -148,6 +148,23 @@ export class UsersService {
     return this.prisma.user.update({ where: { id }, data: { isActive } });
   }
 
+  async linkTelegramId(userId: string, telegramId: bigint) {
+    const taken = await this.prisma.user.findFirst({
+      where: { telegramId, NOT: { id: userId } },
+    });
+    if (taken) {
+      throw new BadRequestException('Бұл Telegram ID басқа қызметкерде қолданыста');
+    }
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { telegramId },
+    });
+    return {
+      ok: true,
+      telegramId: updated.telegramId ? updated.telegramId.toString() : null,
+    };
+  }
+
   /**
    * Қолданушының Telegram профиль фотосын Telegram Bot API арқылы алу.
    * Кэшке қою үшін browser-ге Cache-Control қойылады.
@@ -211,6 +228,16 @@ export class UsersController {
     private users: UsersService,
     private config: ConfigService,
   ) {}
+
+  @Patch('me/telegram')
+  @ApiOperation({ summary: 'Өзімнің Telegram ID-мен байланыс орнату' })
+  async linkMyTelegram(@Body() body: { telegramId: string }, @Req() req: any) {
+    const tg = (body?.telegramId || '').trim();
+    if (!tg || !/^[0-9]+$/.test(tg)) {
+      throw new BadRequestException('Telegram ID — тек сандардан тұратын идентификатор');
+    }
+    return this.users.linkTelegramId(req.user.id, BigInt(tg));
+  }
 
   @Get(':id/photo')
   @ApiOperation({ summary: 'Қолданушының Telegram профиль фотосын алу' })

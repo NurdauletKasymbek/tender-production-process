@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { DashboardHeader } from '../../components/DashboardHeader';
 import { BrandCard } from '../../components/BrandCard';
+import { ActivityFeed } from '../../components/ActivityFeed';
 import { Spinner } from '../../components/Spinner';
 import { OrderCard } from '../../components/OrderCard';
 import { EmptyState } from '../../components/EmptyState';
@@ -97,6 +98,9 @@ export function DirectorHome() {
         <span aria-hidden>📊</span>
         <span>Excel-ге экспорттау (CSV)</span>
       </button>
+
+      <h3 className="section-title">⚡ Соңғы әрекеттер</h3>
+      <ActivityFeed limit={8} />
 
       <h3 className="section-title">Барлық тапсырыстар</h3>
       <div className="chips">

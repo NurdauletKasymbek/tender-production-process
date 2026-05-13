@@ -173,6 +173,7 @@ export class OrdersService {
         where: { id: orderId },
         data: {
           status: nextStatus,
+          stageChangedAt: new Date(),
           responsibleId: newResponsibleId,
           startedAt: order.startedAt ?? (
             nextStatus === OrderStatus.PRODUCTION
@@ -362,6 +363,74 @@ export class OrdersService {
 
     // BOM — Excel-де UTF-8 дұрыс ашылу үшін
     return '\uFEFF' + csv;
+  }
+
+  /**
+   * Соңғы әрекеттер лентасы — статус ауысулары, файл жүктеу, чат.
+   * Әр элементте: түр, кім, не, қашан, тапсырыс сілтемесі.
+   */
+  async activityFeed(limit: number) {
+    const [statusChanges, files, messages] = await Promise.all([
+      this.prisma.orderStatusHistory.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        include: {
+          changedBy: { select: { fullName: true, role: true } },
+          order: { select: { id: true, tenderNumber: true, productName: true } },
+        },
+      }),
+      this.prisma.orderFile.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        include: {
+          uploadedBy: { select: { fullName: true, role: true } },
+          order: { select: { id: true, tenderNumber: true, productName: true } },
+        },
+      }),
+      this.prisma.orderMessage.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        include: {
+          author: { select: { fullName: true, role: true } },
+          order: { select: { id: true, tenderNumber: true, productName: true } },
+        },
+      }),
+    ]);
+
+    const merged = [
+      ...statusChanges.map((s) => ({
+        kind: 'STATUS' as const,
+        id: `s-${s.id}`,
+        when: s.createdAt,
+        actor: s.changedBy,
+        order: s.order,
+        fromStatus: s.fromStatus,
+        toStatus: s.toStatus,
+        comment: s.comment,
+      })),
+      ...files.map((f) => ({
+        kind: 'FILE' as const,
+        id: `f-${f.id}`,
+        when: f.createdAt,
+        actor: f.uploadedBy,
+        order: f.order,
+        fileName: f.fileName,
+        fileType: f.fileType,
+      })),
+      ...messages.map((m) => ({
+        kind: 'MESSAGE' as const,
+        id: `m-${m.id}`,
+        when: m.createdAt,
+        actor: m.author,
+        order: m.order,
+        text: m.text.length > 80 ? m.text.slice(0, 77) + '...' : m.text,
+        hasFile: !!m.fileId,
+      })),
+    ];
+
+    return merged
+      .sort((a, b) => new Date(b.when).getTime() - new Date(a.when).getTime())
+      .slice(0, limit);
   }
 
   /** Басшылық дашборды үшін статистика */

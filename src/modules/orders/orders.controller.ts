@@ -44,6 +44,13 @@ export class OrdersController {
     return this.orders.dashboardStats();
   }
 
+  @Get('activity')
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR)
+  @ApiOperation({ summary: 'Соңғы әрекеттер лентасы (status, файл, хабарлама)' })
+  activity(@Query('limit') limit?: string) {
+    return this.orders.activityFeed(limit ? Math.min(Number(limit), 50) : 20);
+  }
+
   @Get('export.csv')
   @Roles(UserRole.ADMIN, UserRole.DIRECTOR)
   @ApiOperation({ summary: 'Тапсырыстарды CSV-ке экспорттау (Excel-ге сай)' })

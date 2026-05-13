@@ -1,8 +1,8 @@
 import { api, tokenStorage } from './client';
 import type {
-  AuthResponse, DashboardStats, FileType, FulfillmentType, Notification, Order, OrderFile,
-  OrderMessage, OrderStatus, ProductionTask, StockItem, StockItemDetail, StockMovement,
-  StockMovementType, StockStats, TaskStatus,
+  ActivityItem, AuthResponse, DashboardStats, FileType, FulfillmentType, Notification,
+  Order, OrderFile, OrderMessage, OrderStatus, ProductionTask, StockItem, StockItemDetail,
+  StockMovement, StockMovementType, StockStats, TaskStatus,
 } from '../types';
 
 export const authApi = {
@@ -25,6 +25,9 @@ export const ordersApi = {
   get: (id: string) => api.get<Order>(`/orders/${id}`).then((r) => r.data),
 
   dashboard: () => api.get<DashboardStats>('/orders/dashboard').then((r) => r.data),
+
+  activity: (limit = 20) =>
+    api.get<ActivityItem[]>('/orders/activity', { params: { limit } }).then((r) => r.data),
 
   exportCsvUrl: (status?: OrderStatus) => {
     const base = (api.defaults.baseURL || '/api').replace(/\/$/, '');
@@ -169,6 +172,13 @@ export interface AdminUser {
 
 export const usersApi = {
   list: () => api.get<AdminUser[]>('/users').then((r) => r.data),
+
+  linkMyTelegram: (telegramId: string) =>
+    api.patch<{ ok: boolean; telegramId: string | null }>(
+      '/users/me/telegram',
+      { telegramId },
+    ).then((r) => r.data),
+
   create: (body: {
     fullName: string;
     role: import('../types').UserRole;

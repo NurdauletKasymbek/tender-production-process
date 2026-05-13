@@ -54,6 +54,7 @@ export interface Order {
   deadline: string;
   startedAt?: string | null;
   completedAt?: string | null;
+  stageChangedAt?: string | null;
   deliveryAddress?: string | null;
   deliveryContact?: string | null;
   // Көлік ақпараты (логист толтырады LOADING → LOGISTICS өткенде)
@@ -189,6 +190,26 @@ export interface StockMovement {
 
 export interface StockItemDetail extends StockItem {
   movements: StockMovement[];
+}
+
+export type ActivityKind = 'STATUS' | 'FILE' | 'MESSAGE';
+
+export interface ActivityItem {
+  kind: ActivityKind;
+  id: string;
+  when: string;
+  actor: { fullName: string; role: UserRole };
+  order: { id: string; tenderNumber: string; productName: string };
+  // STATUS
+  fromStatus?: OrderStatus | null;
+  toStatus?: OrderStatus;
+  comment?: string | null;
+  // FILE
+  fileName?: string;
+  fileType?: FileType;
+  // MESSAGE
+  text?: string;
+  hasFile?: boolean;
 }
 
 export interface OrderMessage {

@@ -109,6 +109,8 @@ model Order {
   deadline        DateTime              // жеткізу мерзімі
   startedAt       DateTime?
   completedAt     DateTime?
+  // Соңғы статус ауысуы — SLA таймер үшін. Жаңа жазбада createdAt-қа тең.
+  stageChangedAt  DateTime  @default(now())
   
   // Жеткізу
   deliveryAddress String?
