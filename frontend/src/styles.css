@@ -1862,3 +1862,50 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   margin-top: 3px;
   font-size: 11px;
 }
+
+/* ============= Attached files list (NewOrderPage) ============= */
+.attached-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.attached-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+}
+.attached-row__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attached-row__type {
+  flex-shrink: 0;
+  width: auto;
+  min-width: 160px;
+  padding: 4px 8px;
+  font-size: 12px;
+  height: 32px;
+}
+.attached-row__remove {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--tg-hint);
+  border: 0;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.attached-row__remove:hover { color: var(--danger); }

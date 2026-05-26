@@ -40,9 +40,9 @@ export function TenderDepartmentHome() {
         ))}
       </div>
 
-      <Link to="/orders/new" className="btn btn--soft btn--lg btn--block">
+      <Link to="/orders/new" className="btn btn--primary btn--lg btn--block">
         <span aria-hidden>+</span>
-        <span>Қолмен тапсырыс жасау</span>
+        <span>Жаңа тапсырыс жасау</span>
       </Link>
 
       {error && <div className="alert alert--error"><span>⚠️</span><span>{error}</span></div>}
