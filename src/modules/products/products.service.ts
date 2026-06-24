@@ -5,10 +5,7 @@ import {
 } from '@nestjs/common';
 import { InquiryStatus, Prisma } from '@prisma/client';
 import 'multer';
-import * as fs from 'fs';
-import * as path from 'path';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { UPLOAD_ROOT } from '../files/files.service';
 import {
   CreateInquiryDto,
   CreateProductDto,
@@ -42,6 +39,11 @@ function slugify(input: string): string {
 const ALLOWED_IMAGE_MIME = new Set([
   'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
 ]);
+
+// Суреттен JSON-ға беретін өрістер (data байттарын ҚОСПАЙМЫЗ).
+const IMAGE_META = {
+  id: true, productId: true, mimeType: true, sizeBytes: true, sortOrder: true, createdAt: true,
+} as const;
 
 @Injectable()
 export class ProductsService {
@@ -84,7 +86,7 @@ export class ProductsService {
       where,
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       include: {
-        images: { orderBy: { sortOrder: 'asc' }, take: 1 }, // cover ғана
+        images: { orderBy: { sortOrder: 'asc' }, take: 1, select: IMAGE_META }, // cover ғана
       },
     });
   }
@@ -106,25 +108,17 @@ export class ProductsService {
   async publicBySlug(slug: string) {
     const product = await this.prisma.product.findFirst({
       where: { slug, isPublished: true },
-      include: { images: { orderBy: { sortOrder: 'asc' } } },
+      include: { images: { orderBy: { sortOrder: 'asc' }, select: IMAGE_META } },
     });
     if (!product) throw new NotFoundException('Тауар табылмады');
     return product;
   }
 
-  /** Сурет метасы (публичный беру үшін). */
+  /** Сурет байттары (публичный беру үшін). */
   async getImage(id: string) {
     const img = await this.prisma.productImage.findUnique({ where: { id } });
     if (!img) throw new NotFoundException('Сурет табылмады');
     return img;
-  }
-
-  resolveDiskPath(relativePath: string): string {
-    const abs = path.resolve(UPLOAD_ROOT, relativePath);
-    if (!abs.startsWith(UPLOAD_ROOT)) {
-      throw new BadRequestException('Жарамсыз файл жолы');
-    }
-    return abs;
   }
 
   /** Клиент сұранысын қабылдау (публичный). */
@@ -166,7 +160,7 @@ export class ProductsService {
       where,
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       include: {
-        images: { orderBy: { sortOrder: 'asc' }, take: 1 },
+        images: { orderBy: { sortOrder: 'asc' }, take: 1, select: IMAGE_META },
         _count: { select: { inquiries: true, images: true } },
       },
     });
@@ -176,7 +170,7 @@ export class ProductsService {
     const product = await this.prisma.product.findUnique({
       where: { id },
       include: {
-        images: { orderBy: { sortOrder: 'asc' } },
+        images: { orderBy: { sortOrder: 'asc' }, select: IMAGE_META },
         stockItem: { select: { id: true, name: true, quantity: true, unit: true } },
       },
     });
@@ -200,7 +194,7 @@ export class ProductsService {
         sortOrder: dto.sortOrder ?? 0,
         stockItemId: dto.stockItemId || null,
       },
-      include: { images: true },
+      include: { images: { select: IMAGE_META } },
     });
   }
 
@@ -232,24 +226,14 @@ export class ProductsService {
     return this.prisma.product.update({
       where: { id },
       data,
-      include: { images: { orderBy: { sortOrder: 'asc' } } },
+      include: { images: { orderBy: { sortOrder: 'asc' }, select: IMAGE_META } },
     });
   }
 
   async remove(id: string) {
-    const product = await this.prisma.product.findUnique({
-      where: { id },
-      include: { images: true },
-    });
+    const product = await this.prisma.product.findUnique({ where: { id } });
     if (!product) throw new NotFoundException('Тауар табылмады');
-
-    // Дискідегі суреттерді тазалаймыз (DB каскадпен өшеді).
-    for (const img of product.images) {
-      try { fs.unlinkSync(this.resolveDiskPath(img.filePath)); } catch { /* ignore */ }
-    }
-    const dir = path.resolve(UPLOAD_ROOT, 'products', id);
-    try { fs.rmdirSync(dir); } catch { /* ignore — бос болмаса қалады */ }
-
+    // Суреттер DB-де (bytea) — каскадпен бірге өшеді.
     await this.prisma.product.delete({ where: { id } });
     return { ok: true };
   }
@@ -258,12 +242,8 @@ export class ProductsService {
 
   async addImage(productId: string, file: Express.Multer.File) {
     const product = await this.prisma.product.findUnique({ where: { id: productId } });
-    if (!product) {
-      try { fs.unlinkSync(file.path); } catch { /* ignore */ }
-      throw new NotFoundException('Тауар табылмады');
-    }
+    if (!product) throw new NotFoundException('Тауар табылмады');
     if (!ALLOWED_IMAGE_MIME.has(file.mimetype)) {
-      try { fs.unlinkSync(file.path); } catch { /* ignore */ }
       throw new BadRequestException('Рұқсат етілген түрлер: JPG, PNG, WEBP, HEIC');
     }
 
@@ -274,21 +254,25 @@ export class ProductsService {
     });
     const sortOrder = last ? last.sortOrder + 1 : 0;
 
-    return this.prisma.productImage.create({
+    const created = await this.prisma.productImage.create({
       data: {
         productId,
-        filePath: path.relative(UPLOAD_ROOT, file.path).replace(/\\/g, '/'),
+        data: file.buffer,
         mimeType: file.mimetype,
         sizeBytes: file.size,
         sortOrder,
       },
+      select: { id: true, productId: true, mimeType: true, sizeBytes: true, sortOrder: true, createdAt: true },
     });
+    return created;
   }
 
   async removeImage(imageId: string) {
-    const img = await this.prisma.productImage.findUnique({ where: { id: imageId } });
+    const img = await this.prisma.productImage.findUnique({
+      where: { id: imageId },
+      select: { id: true },
+    });
     if (!img) throw new NotFoundException('Сурет табылмады');
-    try { fs.unlinkSync(this.resolveDiskPath(img.filePath)); } catch { /* ignore */ }
     await this.prisma.productImage.delete({ where: { id: imageId } });
     return { ok: true };
   }
@@ -311,6 +295,7 @@ export class ProductsService {
     return this.prisma.productImage.findMany({
       where: { productId },
       orderBy: { sortOrder: 'asc' },
+      select: IMAGE_META,
     });
   }
 

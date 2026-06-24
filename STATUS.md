@@ -91,6 +91,22 @@ Cron: 5 минутта жаңарады
 > ⚠️ Деплой/DB: жаңа кестелер `prisma db push` арқылы құрылады (start:prod автоматты жасайды).
 > Локалды тестілеу үшін алдымен `npx prisma db push` орындау керек (DATABASE_URL — Neon prod).
 
+### Каталог суреттері DB-де (Railway эфемерлі)
+- `ProductImage.data` — **Bytes (Postgres bytea)**. Railway файл жүйесі redeploy-да жоғалатындықтан
+  суреттер дискіде емес, Neon DB-де сақталады. Публичный беру: `GET /api/catalog/image/:id`.
+- Сурет жүктеу енді memoryStorage (диск емес). `Product.sku` — `@unique` (импорт кілті).
+
+### SERT каталогын импорттау (PDF → DB)
+- Дереккөз: `КАТАЛОГ+ПРАЙС.pdf` (47 бет, жиһаз: парта, кресло, стул, шкаф, диван...).
+- `scripts/extract_catalog.py` (PyMuPDF+Pillow): әр беттен категория, фото, баға, материал/өлшем.
+  Макетті (жолақ/2×2 тор) танып, фотоны дұрыс бағамен жұптайды. Фото — SMask-пен ақ фонға
+  таза кесінді (e-commerce), JPEG q82, макс 1000px.
+- Нәтиже: **`prisma/catalog-data/`** (manifest.json + 133 сурет, ~2.4MB) — репода.
+- `prisma/seed-catalog.ts` (start:prod-та автоматты, идемпотентті, sku=SERT-NNN) DB-ге жазады.
+  ~134 тауар. **Бұл машина Neon-ға жете алмайды (5432 бөгелген) — импорт деплойда Railway-да өтеді.**
+- Қайта генерациялау: `python scripts/extract_catalog.py` → `prisma/catalog-data` көшіру.
+- ⚠️ Бағалар/модельдер кей жерде жылжуы мүмкін — `/admin/products`-та түзетуге болады.
+
 ## Cleanup ✅
 
 - POST /goszakup/cleanup-approved (ADMIN) — Goszakup-та "Утвержден" актісі бар тапсырыстарды CLOSED-ке тазарту

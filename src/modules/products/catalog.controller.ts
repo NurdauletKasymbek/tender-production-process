@@ -3,7 +3,6 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import * as fs from 'fs';
 import { CreateInquiryDto } from './dto/product.dto';
 import { ProductsService } from './products.service';
 
@@ -29,16 +28,14 @@ export class CatalogController {
   }
 
   @Get('image/:id')
-  @ApiOperation({ summary: 'Тауар суретін беру (публичный)' })
+  @ApiOperation({ summary: 'Тауар суретін беру (публичный, DB-ден)' })
   async image(@Param('id') id: string, @Res() res: Response) {
     const img = await this.products.getImage(id);
-    const abs = this.products.resolveDiskPath(img.filePath);
-    if (!fs.existsSync(abs)) {
-      return res.status(404).json({ message: 'Сурет дискіде жоқ' });
-    }
+    const buf = Buffer.from(img.data as Buffer);
     res.setHeader('Content-Type', img.mimeType);
     res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 күн кэш
-    fs.createReadStream(abs).pipe(res);
+    res.setHeader('Content-Length', String(buf.length));
+    res.end(buf);
   }
 
   @Post('inquiry')

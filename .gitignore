@@ -4,3 +4,12 @@ dist
 *.log
 uploads
 .DS_Store
+
+# Уақытша экстракция артефакттары (seed деректері prisma/catalog-data-да)
+_catalog_extract/
+_pdf_dump.txt
+_pos.txt
+_summary.txt
+_chk.txt
+_page*.png
+_v*.jpg

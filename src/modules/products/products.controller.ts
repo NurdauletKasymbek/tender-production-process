@@ -8,12 +8,9 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { InquiryStatus, UserRole } from '@prisma/client';
 import 'multer';
-import { diskStorage } from 'multer';
-import * as fs from 'fs';
-import * as path from 'path';
+import { memoryStorage } from 'multer';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { UPLOAD_ROOT } from '../files/files.service';
 import {
   CreateInquiryDto,
   CreateProductDto,
@@ -103,21 +100,7 @@ export class ProductsController {
   })
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (req, _file, cb) => {
-          const productId = (req.params as any)?.id;
-          if (!productId) return cb(new BadRequestException('id қажет'), '');
-          const dir = path.resolve(UPLOAD_ROOT, 'products', productId);
-          fs.mkdirSync(dir, { recursive: true });
-          cb(null, dir);
-        },
-        filename: (_req, file, cb) => {
-          const ext = path.extname(file.originalname);
-          const safe = path.basename(file.originalname, ext)
-            .replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40);
-          cb(null, `${Date.now()}-${safe}${ext}`);
-        },
-      }),
+      storage: memoryStorage(),
       limits: { fileSize: MAX_BYTES },
     }),
   )
