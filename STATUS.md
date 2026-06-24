@@ -72,6 +72,25 @@ Cron: 5 минутта жаңарады
 - OrderDetail-да "Склад байланысы" — STOCK тапсырысқа склад бірлігі мен мөлшерді бекіту
 - LOADING → LOGISTICS өткенде автоматты `OUT` қозғалысы (идемпотентті, `stockDeductedAt` арқылы)
 
+## Аяқталған Phase E — Электронды каталог (публичный) ✅
+
+Сыртқы клиенттерге арналған публичный тауар каталогы + сұраныс (lead) жинау.
+
+- Жаңа Prisma модельдері: `Product`, `ProductImage`, `ProductInquiry` + `InquiryStatus` enum
+- **Публичный** (логинсіз) беттер:
+  - `/catalog` — тауар торы, іздеу, санат сүзгісі
+  - `/catalog/:slug` — тауар беті: сурет галереясы, баға/«сұрау бойынша», сұраныс формасы
+- **Басқару** (ADMIN/DIRECTOR):
+  - `/admin/products` — CRUD тізім, іздеу
+  - `/admin/products/new` + `/admin/products/:id` — форма + көп сурет жүктеу/реттеу (cover таңдау)
+  - `/admin/inquiries` — клиент сұраныстары, күй өзгерту (NEW→CONTACTED→CLOSED)
+- Суреттер дискіде (`uploads/products/:id/`), публичный беру `/api/catalog/image/:id` (1 күн кэш)
+- slug автоматты (кириллица транслитерациясы), бірегейлендіру `-2`, `-3`...
+- Үй беттерде (Admin/Director) «Электронды каталог» сілтемесі
+
+> ⚠️ Деплой/DB: жаңа кестелер `prisma db push` арқылы құрылады (start:prod автоматты жасайды).
+> Локалды тестілеу үшін алдымен `npx prisma db push` орындау керек (DATABASE_URL — Neon prod).
+
 ## Cleanup ✅
 
 - POST /goszakup/cleanup-approved (ADMIN) — Goszakup-та "Утвержден" актісі бар тапсырыстарды CLOSED-ке тазарту
@@ -114,6 +133,26 @@ GET    /stock/export.csv            # CSV экспорт
 POST   /stock/import                # CSV импорт (multipart file)
 PATCH  /orders/:id/stock-link       # тапсырысқа склад бірлігін бекіту
 POST   /goszakup/cleanup-approved   # бітіп қойғандарды тазарту
+
+# Электронды каталог (публичный — auth жоқ)
+GET    /catalog                     # жарияланған тауарлар (search, category)
+GET    /catalog/categories          # санаттар + саны
+GET    /catalog/:slug               # тауар беті
+GET    /catalog/image/:id           # сурет беру (публичный, кэш)
+POST   /catalog/inquiry             # сұраныс қалдыру (логинсіз)
+
+# Каталог басқару (ADMIN, DIRECTOR)
+GET    /products                    # барлық тауар (черновикпен)
+POST   /products                    # жаңа тауар
+GET    /products/:id                # мәлімет (суреттермен)
+PATCH  /products/:id                # жаңарту
+DELETE /products/:id                # өшіру (суреттерімен)
+POST   /products/:id/images         # сурет жүктеу (multipart)
+PATCH  /products/:id/images/reorder # суреттерді реттеу (cover)
+DELETE /products/images/:id         # суретті өшіру
+GET    /products/inquiries          # сұраныстар тізімі (?status=)
+GET    /products/inquiries/stats    # сұраныс статистикасы
+PATCH  /products/inquiries/:id      # сұраныс күйін жаңарту
 ```
 
 ## Қайта бастау командалары

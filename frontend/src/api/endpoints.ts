@@ -1,7 +1,8 @@
 import { api, tokenStorage } from './client';
 import type {
-  ActivityItem, AuthResponse, DashboardStats, FileType, FulfillmentType, Notification,
-  Order, OrderFile, OrderMessage, OrderStatus, ProductionTask, StockItem, StockItemDetail,
+  ActivityItem, AuthResponse, CategoryCount, DashboardStats, FileType, FulfillmentType,
+  InquiryStats, InquiryStatus, Notification, Order, OrderFile, OrderMessage, OrderStatus,
+  Product, ProductImage, ProductInquiry, ProductionTask, StockItem, StockItemDetail,
   StockMovement, StockMovementType, StockStats, TaskStatus,
 } from '../types';
 
@@ -286,6 +287,101 @@ export const messagesApi = {
 
   remove: (orderId: string, messageId: string) =>
     api.delete<{ ok: boolean }>(`/orders/${orderId}/messages/${messageId}`).then((r) => r.data),
+};
+
+/** Тауар суретінің публичный URL-і (логинсіз ашылады, кэштеледі). */
+export function productImageUrl(imageId: string): string {
+  const base = (api.defaults.baseURL || '/api').replace(/\/$/, '');
+  return `${base}/catalog/image/${imageId}`;
+}
+
+/** Публичный каталог — логинсіз қолжетімді. */
+export const catalogApi = {
+  list: (params: { search?: string; category?: string } = {}) =>
+    api.get<Product[]>('/catalog', {
+      params: {
+        ...(params.search ? { search: params.search } : {}),
+        ...(params.category ? { category: params.category } : {}),
+      },
+    }).then((r) => r.data),
+
+  categories: () => api.get<CategoryCount[]>('/catalog/categories').then((r) => r.data),
+
+  bySlug: (slug: string) => api.get<Product>(`/catalog/${slug}`).then((r) => r.data),
+
+  inquiry: (body: {
+    name: string;
+    phone: string;
+    email?: string;
+    company?: string;
+    quantity?: number;
+    message?: string;
+    productId?: string;
+  }) => api.post<ProductInquiry>('/catalog/inquiry', body).then((r) => r.data),
+};
+
+/** Каталогты басқару — ADMIN/DIRECTOR. */
+export const productsApi = {
+  list: (params: { search?: string; category?: string } = {}) =>
+    api.get<Product[]>('/products', {
+      params: {
+        ...(params.search ? { search: params.search } : {}),
+        ...(params.category ? { category: params.category } : {}),
+      },
+    }).then((r) => r.data),
+
+  get: (id: string) => api.get<Product>(`/products/${id}`).then((r) => r.data),
+
+  create: (body: {
+    name: string;
+    category?: string;
+    description?: string;
+    unit?: string;
+    price?: number;
+    currency?: string;
+    sku?: string;
+    isPublished?: boolean;
+    sortOrder?: number;
+  }) => api.post<Product>('/products', body).then((r) => r.data),
+
+  update: (id: string, body: Partial<{
+    name: string;
+    slug: string;
+    category: string;
+    description: string;
+    unit: string;
+    price: number | null;
+    currency: string;
+    sku: string;
+    isPublished: boolean;
+    sortOrder: number;
+  }>) => api.patch<Product>(`/products/${id}`, body).then((r) => r.data),
+
+  remove: (id: string) => api.delete<{ ok: boolean }>(`/products/${id}`).then((r) => r.data),
+
+  addImage: (id: string, file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post<ProductImage>(`/products/${id}/images`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data);
+  },
+
+  removeImage: (imageId: string) =>
+    api.delete<{ ok: boolean }>(`/products/images/${imageId}`).then((r) => r.data),
+
+  reorderImages: (id: string, imageIds: string[]) =>
+    api.patch<ProductImage[]>(`/products/${id}/images/reorder`, { imageIds }).then((r) => r.data),
+
+  inquiries: (status?: InquiryStatus) =>
+    api.get<ProductInquiry[]>('/products/inquiries', {
+      params: status ? { status } : {},
+    }).then((r) => r.data),
+
+  inquiryStats: () => api.get<InquiryStats>('/products/inquiries/stats').then((r) => r.data),
+
+  updateInquiry: (id: string, body: { status?: InquiryStatus; notes?: string }) =>
+    api.patch<ProductInquiry>(`/products/inquiries/${id}`, body).then((r) => r.data),
 };
 
 export const notificationsApi = {

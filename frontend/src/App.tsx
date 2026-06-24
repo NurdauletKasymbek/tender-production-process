@@ -13,6 +13,11 @@ import { InventoryDetailPage } from './pages/InventoryDetailPage';
 import { InventoryNewPage } from './pages/InventoryNewPage';
 import { InventoryEditPage } from './pages/InventoryEditPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
+import { CatalogPage } from './pages/CatalogPage';
+import { ProductDetailPage } from './pages/ProductDetailPage';
+import { AdminProductsPage } from './pages/AdminProductsPage';
+import { AdminProductEditPage } from './pages/AdminProductEditPage';
+import { AdminInquiriesPage } from './pages/AdminInquiriesPage';
 import { Layout } from './components/Layout';
 import { initTelegram } from './utils/telegram';
 import { Spinner } from './components/Spinner';
@@ -33,6 +38,10 @@ function ProtectedShell() {
         <Route path="/inventory/:id" element={<InventoryDetailPage />} />
         <Route path="/inventory/:id/edit" element={<InventoryEditPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/products" element={<AdminProductsPage />} />
+        <Route path="/admin/products/new" element={<AdminProductEditPage />} />
+        <Route path="/admin/products/:id" element={<AdminProductEditPage />} />
+        <Route path="/admin/inquiries" element={<AdminInquiriesPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -45,6 +54,9 @@ function AppRoutes() {
   const { user } = useAuth();
   return (
     <Routes>
+      {/* Публичный каталог — логинсіз қолжетімді */}
+      <Route path="/catalog" element={<CatalogPage />} />
+      <Route path="/catalog/:slug" element={<ProductDetailPage />} />
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route path="/*" element={<ProtectedShell />} />
     </Routes>

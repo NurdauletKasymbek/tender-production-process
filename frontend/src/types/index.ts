@@ -241,3 +241,65 @@ export interface StockStats {
     unit: string;
   }>;
 }
+
+// ============== ЭЛЕКТРОНДЫ КАТАЛОГ ==============
+
+export interface ProductImage {
+  id: string;
+  productId: string;
+  mimeType: string;
+  sizeBytes: number;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface Product {
+  id: string;
+  slug: string;
+  name: string;
+  category?: string | null;
+  description?: string | null;
+  unit: string;
+  price?: string | number | null;
+  currency: string;
+  sku?: string | null;
+  isPublished: boolean;
+  sortOrder: number;
+  stockItemId?: string | null;
+  images: ProductImage[];
+  createdAt: string;
+  updatedAt: string;
+  // adminList қосымшалары
+  _count?: { inquiries: number; images: number };
+  stockItem?: { id: string; name: string; quantity: string | number; unit: string } | null;
+}
+
+export interface CategoryCount {
+  category: string;
+  count: number;
+}
+
+export type InquiryStatus = 'NEW' | 'CONTACTED' | 'CLOSED';
+
+export interface ProductInquiry {
+  id: string;
+  productId?: string | null;
+  name: string;
+  phone: string;
+  email?: string | null;
+  company?: string | null;
+  quantity?: number | null;
+  message?: string | null;
+  status: InquiryStatus;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  product?: { id: string; name: string; slug: string } | null;
+}
+
+export interface InquiryStats {
+  total: number;
+  new: number;
+  contacted: number;
+  closed: number;
+}

@@ -103,6 +103,10 @@ export function AdminHome() {
           <span aria-hidden>📦</span>
           <span>Склад инвентары</span>
         </Link>
+        <Link to="/admin/products" className="btn btn--soft btn--block">
+          <span aria-hidden>🛍️</span>
+          <span>Электронды каталог</span>
+        </Link>
         <button
           className="btn btn--soft btn--block"
           onClick={() => void ordersApi.downloadCsv()}

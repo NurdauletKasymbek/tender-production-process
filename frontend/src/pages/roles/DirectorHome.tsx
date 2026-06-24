@@ -5,6 +5,7 @@ import { ActivityFeed } from '../../components/ActivityFeed';
 import { Spinner } from '../../components/Spinner';
 import { OrderCard } from '../../components/OrderCard';
 import { EmptyState } from '../../components/EmptyState';
+import { Link } from 'react-router-dom';
 import { ordersApi } from '../../api/endpoints';
 import type { DashboardStats, Order, OrderStatus } from '../../types';
 import { STATUS_COLOR, STATUS_LABEL } from '../../utils/labels';
@@ -91,13 +92,19 @@ export function DirectorHome() {
         </>
       )}
 
-      <button
-        className="btn btn--soft btn--block"
-        onClick={() => void ordersApi.downloadCsv()}
-      >
-        <span aria-hidden>📊</span>
-        <span>Excel-ге экспорттау (CSV)</span>
-      </button>
+      <div className="flex gap-sm" style={{ flexDirection: 'column' }}>
+        <Link to="/admin/products" className="btn btn--soft btn--block">
+          <span aria-hidden>🛍️</span>
+          <span>Электронды каталог</span>
+        </Link>
+        <button
+          className="btn btn--soft btn--block"
+          onClick={() => void ordersApi.downloadCsv()}
+        >
+          <span aria-hidden>📊</span>
+          <span>Excel-ге экспорттау (CSV)</span>
+        </button>
+      </div>
 
       <h3 className="section-title">⚡ Соңғы әрекеттер</h3>
       <ActivityFeed limit={8} />

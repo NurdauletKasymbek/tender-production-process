@@ -331,6 +331,7 @@ model StockItem {
 
   movements    StockMovement[]
   orders       Order[]                       // тапсырыстарға байланған бірлік
+  products     Product[]                     // каталог тауарларына байланыс (опционалды)
 
   @@index([name])
   @@index([category])
@@ -360,4 +361,92 @@ model StockMovement {
   @@index([stockItemId, createdAt])
   @@index([orderId])
   @@index([type])
+}
+
+// ============== ЭЛЕКТРОНДЫ КАТАЛОГ (публичный) ==============
+// Компания өндіретін/сататын тауарлардың публичный каталогы.
+// Логинсіз клиенттер `/catalog` бетінен тауарларды шолып, сұраныс қалдыра алады.
+
+// Сұраныстың өңделу күйі (ішкі CRM).
+enum InquiryStatus {
+  NEW        // жаңа (өңделмеген)
+  CONTACTED  // клиентпен байланысқан
+  CLOSED     // жабылды (мәміле/бас тарту)
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  // Публичный URL үшін адам оқитын идентификатор: /catalog/:slug
+  slug        String   @unique
+  name        String
+  category    String?                       // топтастыру: "тротуарная плитка", "бордюр" т.б.
+  description String?  @db.Text             // толық сипаттама (multiline)
+
+  unit        String   @default("дана")
+  // Баға опционалды — белгіленсе публичный бетте көрсетіледі, болмаса "Сұрау бойынша".
+  price       Decimal? @db.Decimal(15, 2)
+  currency    String   @default("KZT")
+
+  sku         String?                       // ішкі артикул (қажет болса)
+
+  // Публикация: false болса каталогтан жасырылады (черновик/уақытша алып тастау).
+  isPublished Boolean  @default(true)
+  // Қолмен сұрыптау — кіші мән жоғары тұрады.
+  sortOrder   Int      @default(0)
+
+  // Қажет болса склад бірлігіне байланыс (қалдықпен синхрон үшін, опционалды).
+  stockItemId String?
+  stockItem   StockItem? @relation(fields: [stockItemId], references: [id], onDelete: SetNull)
+
+  images      ProductImage[]
+  inquiries   ProductInquiry[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isPublished, sortOrder])
+  @@index([category])
+  @@index([name])
+}
+
+// Тауар суреттері — дискіде сақталады (uploads/products/:id/), публичный түрде беріледі.
+model ProductImage {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  filePath    String   // UPLOAD_ROOT-қа қатысты жол
+  mimeType    String
+  sizeBytes   Int
+  sortOrder   Int      @default(0)   // 0 — басты (cover) сурет
+
+  createdAt   DateTime @default(now())
+
+  @@index([productId, sortOrder])
+}
+
+// Клиенттің каталогтан қалдырған сұранысы (логинсіз).
+model ProductInquiry {
+  id          String        @id @default(uuid())
+
+  // Қай тауар туралы (опционалды — жалпы сұраныс та болуы мүмкін).
+  productId   String?
+  product     Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  // Клиент байланысы
+  name        String
+  phone       String
+  email       String?
+  company     String?
+  quantity    Int?
+  message     String?       @db.Text
+
+  status      InquiryStatus @default(NEW)
+  notes       String?       // ішкі ескертпе (менеджер толтырады)
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status, createdAt])
+  @@index([productId])
 }

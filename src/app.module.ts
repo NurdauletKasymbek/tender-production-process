@@ -13,6 +13,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { FilesModule } from './modules/files/files.module';
 import { StockModule } from './modules/stock/stock.module';
 import { MessagesModule } from './modules/messages/messages.module';
+import { ProductsModule } from './modules/products/products.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { MessagesModule } from './modules/messages/messages.module';
     FilesModule,
     StockModule,
     MessagesModule,
+    ProductsModule,
   ],
 })
 export class AppModule {}
